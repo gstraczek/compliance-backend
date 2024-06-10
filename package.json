@@ -21,6 +21,7 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.0.0",
     "@wtfcode/byte-converter": "1.7.11",
+    "axios": "^1.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "envalid": "^8.0.0",
