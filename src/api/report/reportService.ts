@@ -1,4 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
+import { emojify } from 'node-emoji';
 
 import { ResponseStatus, ServiceResponse } from '@/common/models/serviceResponse';
 import { env } from '@/common/utils/envConfig';
@@ -16,8 +17,8 @@ export const reportService = {
 
       const verifiersData = await reportRepository.getVerifiersData(apiKey, verifierAddress);
       const VerifierClientsData = await reportRepository.getVerifierClientsData(apiKey, verifiersData.addressId);
-      const flaggedClients = await reportRepository.getFlaggedClients(apiKey, VerifierClientsData);
-      const reports = await reportRepository.generateReport(VerifierClientsData, flaggedClients);
+      const flaggedClientsInfo = await reportRepository.getFlaggedClients(apiKey, VerifierClientsData);
+      const reports = await reportRepository.generateReport(verifiersData, VerifierClientsData, flaggedClientsInfo);
 
       return new ServiceResponse<Report[]>(ResponseStatus.Success, 'Reports found', reports, StatusCodes.OK);
     } catch (ex) {
@@ -25,7 +26,13 @@ export const reportService = {
       const errorMessage = `There was an error while generating report: ${error}`;
       logger.error(errorMessage);
       //TODO: change the params to match actual github repo
-      await githubErrorHandle('There was an error while generating report', error, 'gstraczek', 'wegiel', 1);
+      await githubErrorHandle(
+        emojify(':warning:') + 'There was an error while generating report',
+        error,
+        'gstraczek',
+        'wegiel',
+        1
+      );
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   },

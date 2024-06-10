@@ -13,4 +13,7 @@ export const env = cleanEnv(process.env, {
   DATACAPSTATS_API_KEY: str({ devDefault: testOnly('test') }),
   REQUEST_TIMEOUT_LIMIT: num({ default: 5000 }),
   GITHUB_TOKEN: str({ devDefault: testOnly('test') }),
+  DATACAP_API_URL: str({ devDefault: testOnly('http://api.datacapstats.io/public/api') }),
+  VERIFIED_CLIENTS_QUERY_LIMIT: num({ devDefault: testOnly(20) }),
+  UPLOADS_DIR: str({ devDefault: testOnly('uploads') }),
 });

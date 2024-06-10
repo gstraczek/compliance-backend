@@ -59,3 +59,74 @@ export interface GetVerifiersData {
 export interface GetVerifiersResponse extends AxiosResponse {
   data: GetVerifiersData;
 }
+
+export interface Allowance {
+  id: number;
+  error: string;
+  height: number;
+  msgCID: string;
+  retries: number;
+  addressId: string;
+  allowance: string;
+  auditTrail: null | string;
+  allowanceTTD: null | string;
+  usedAllowance: string;
+  isLdnAllowance: boolean;
+  isEFilAllowance: boolean;
+  verifierAddressId: string;
+  isFromAutoverifier: boolean;
+  searchedByProposal: boolean;
+  issueCreateTimestamp: null | string;
+  hasRemainingAllowance: boolean;
+  createMessageTimestamp: number;
+}
+
+export interface GetVerifiedClients {
+  id: number;
+  addressId: string;
+  address: string;
+  retries: number;
+  auditTrail: string;
+  name: null | string;
+  orgName: null | string;
+  initialAllowance: string;
+  allowance: string;
+  verifierAddressId: string;
+  createdAtHeight: number;
+  issueCreateTimestamp: null | string;
+  createMessageTimestamp: number;
+  verifierName: null | string;
+  dealCount: number;
+  providerCount: number;
+  topProvider: string;
+  receivedDatacapChange: string;
+  usedDatacapChange: string;
+  allowanceArray: Allowance[];
+}
+
+export interface GetVerifiedClientsData {
+  count: string;
+  data: GetVerifiedClients[];
+  ldnActivityCount: number;
+}
+export interface FlaggedClientsInfo {
+  addressId: string;
+  queryLimitWarning: boolean;
+}
+
+export interface GetVerifiedClientsResponse {
+  data: GetVerifiedClientsData;
+}
+
+export interface getVerifierClientsData {
+  count: string;
+  data: GetVerifiedClients[];
+  ldnActivityCount: number;
+  name: null | string;
+  remainingDatacap: string;
+  addressId: string;
+}
+
+export interface getVerifierClientsDataResponse extends AxiosResponse {
+  data: GetVerifiedClientsData;
+}
