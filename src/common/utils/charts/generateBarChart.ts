@@ -1,4 +1,4 @@
-import 'chartjs-adapter-dayjs-4';
+import 'chartjs-adapter-date-fns';
 
 import { createCanvas } from 'canvas';
 import {
@@ -7,9 +7,9 @@ import {
   CategoryScale,
   Chart,
   LegendOptions,
+  LinearScale,
   LogarithmicScale,
   TimeScale,
-  TimeSeriesScale,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import xbytes from 'xbytes';
@@ -18,7 +18,7 @@ import { customCanvasBackgroundColor } from './plugins';
 
 type Color = string;
 export interface BarChartEntry {
-  label: string;
+  labels: string;
   data: {
     x: number;
     y: string;
@@ -43,15 +43,7 @@ export default class GenerateBarChart {
   static {
     Chart.defaults.font.weight = 'bold';
     Chart.defaults.font.size = 24;
-    Chart.register(
-      ChartDataLabels,
-      LogarithmicScale,
-      CategoryScale,
-      BarController,
-      BarElement,
-      TimeScale,
-      TimeSeriesScale
-    );
+    Chart.register(ChartDataLabels, LogarithmicScale, CategoryScale, BarController, BarElement, TimeScale, LinearScale);
   }
 
   public static getBase64Image(datasets: BarChartEntry[], opts: BarOptions): string {
@@ -61,9 +53,7 @@ export default class GenerateBarChart {
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
-        // labels: datasets.map((entry) => {
-        //   return Number(entry.label);
-        // }),
+        labels: datasets.map((e) => e.labels),
         datasets: datasets,
       },
       options: {
@@ -113,17 +103,15 @@ export default class GenerateBarChart {
             },
           },
           x: {
+            adapters: {
+              date: {
+                locale: 'en-US',
+              },
+            },
             stacked: true,
-            type: 'time',
-            // type: 'timeseries',
             title: {
               display: true,
               text: opts.titleXText,
-            },
-            time: {
-              displayFormats: {
-                day: 'YYYY-MM-DD',
-              },
             },
           },
         },

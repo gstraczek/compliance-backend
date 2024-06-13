@@ -3,7 +3,6 @@ import { LegendOptions } from 'chart.js';
 import fs from 'fs';
 import { emojify } from 'node-emoji';
 import path from 'path';
-import xbytes from 'xbytes';
 
 import { axiosConfig } from '@/common/utils/axiosConfig';
 import { bytesToiB } from '@/common/utils/byteConverter';
@@ -41,24 +40,16 @@ export const reportRepository = {
         return `| ${warning} ${e.addressId}| ${e.name} | ${e.allowanceArray.length} | ${bytesToiB(totalAllocations, false)} |`;
       });
 
-      content.push('## Granted Allocation for Clients');
-      content.push('');
-      content.push('| ID | Allocation Size | Allocation Timestamp |');
-      content.push('|-|-|-|');
-
-      const sortedClientsByDate: GrantedDatacapByVerifier[] =
-        reportUtils.getSortedClientsByDate(grantedDatacapByVerifier);
-
-      sortedClientsByDate.forEach((row) => {
-        const date = new Date(row.allocationTimestamp * 1000).toISOString();
-        content.push(`| ${row.addressId} | ${row.clientName} |${xbytes(Number(row.allocation))} | ${date} |`);
-      });
+      //calculate distinct sizes of allocations table
+      const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapByVerifier);
+      content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapByVerifier);
       reportRepository.uploadFile(basepath, getBarChartImage, 'png');
 
       content.push('## List of clients and their allocations');
+      content.push('');
       content.push('| ID | Name | Number of Allocations | Total Allocations |');
       content.push('|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
@@ -71,7 +62,7 @@ export const reportRepository = {
 
       if (Number(clientsData.count) > env.VERIFIER_CLIENTS_QUERY_LIMIT)
         content.push(
-          `## There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
+          `## ${emojify(':warning:')} There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
         );
     } else {
       content.push('### No Datacap issued for verifier');
@@ -184,9 +175,9 @@ export const reportRepository = {
       return { ...e, allocationTimestamp: formattedDate };
     });
 
-    const groupedByallocationTimestamp = prepareTimestamp.reduce(
+    const groupedByAllocationTimestamp = prepareTimestamp.reduce(
       (groups: Record<string, typeof grantedDatacapByVerifier>, allocation) => {
-        const key = allocation.allocationTimestamp;
+        const key = new Date(allocation.allocationTimestamp).toISOString().split('T')[0];
         if (!groups[key]) {
           groups[key] = [];
         }
@@ -205,8 +196,8 @@ export const reportRepository = {
       return `rgba(${r}, ${g}, ${b})`;
     };
 
-    const datasets = Object.entries(groupedByallocationTimestamp).map(([allocationTimestamp, allocations]) => ({
-      label: allocationTimestamp,
+    const datasets = Object.entries(groupedByAllocationTimestamp).map(([allocationTimestamp, allocations]) => ({
+      labels: allocationTimestamp,
       data: allocations.map((allocation) => ({
         x: allocation.allocationTimestamp,
         y: allocation.allocation,

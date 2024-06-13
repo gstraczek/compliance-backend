@@ -134,5 +134,4 @@ export interface GrantedDatacapByVerifier {
   allocation: string;
   addressId: string;
   allocationTimestamp: number;
-  clientName: string | null;
 }
