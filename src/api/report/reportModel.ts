@@ -81,7 +81,7 @@ export interface Allowance {
   createMessageTimestamp: number;
 }
 
-export interface GetVerifiedClients {
+export interface ClientsByVerifier {
   id: number;
   addressId: string;
   address: string;
@@ -104,23 +104,22 @@ export interface GetVerifiedClients {
   allowanceArray: Allowance[];
 }
 
-export interface GetVerifiedClientsData {
+export interface ClientsByVerifierData {
   count: string;
-  data: GetVerifiedClients[];
-  ldnActivityCount: number;
+  data: ClientsByVerifier[];
+  ldnActivityCount?: number;
 }
 export interface FlaggedClientsInfo {
   addressId: string;
-  queryLimitWarning: boolean;
 }
 
 export interface GetVerifiedClientsResponse {
-  data: GetVerifiedClientsData;
+  data: ClientsByVerifierData;
 }
 
 export interface getVerifierClientsData {
   count: string;
-  data: GetVerifiedClients[];
+  data: ClientsByVerifier[];
   ldnActivityCount: number;
   name: null | string;
   remainingDatacap: string;
@@ -128,5 +127,11 @@ export interface getVerifierClientsData {
 }
 
 export interface getVerifierClientsDataResponse extends AxiosResponse {
-  data: GetVerifiedClientsData;
+  data: ClientsByVerifierData;
+}
+
+export interface GrantedDatacapByVerifier {
+  allocation: string;
+  addressId: string;
+  allocationTimestamp: number;
 }

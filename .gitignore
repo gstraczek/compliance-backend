@@ -14,7 +14,7 @@ build
 dist-ssr
 *.local
 .env
-src/uploads/*
+uploads
 
 # Editor directories and files
 .vscode/*

@@ -16,16 +16,23 @@ export const reportService = {
         env.DATACAPSTATS_API_KEY && env.DATACAPSTATS_API_KEY !== '' ? env.DATACAPSTATS_API_KEY : await getApiKey();
 
       const verifiersData = await reportRepository.getVerifiersData(apiKey, verifierAddress);
-      const VerifierClientsData = await reportRepository.getVerifierClientsData(apiKey, verifiersData.addressId);
-      const flaggedClientsInfo = await reportRepository.getFlaggedClients(apiKey, VerifierClientsData);
-      const reports = await reportRepository.generateReport(verifiersData, VerifierClientsData, flaggedClientsInfo);
+      const VerifierClients = await reportRepository.getClientsByVerifierId(apiKey, verifiersData.addressId);
+      const flaggedClientsInfo = await reportRepository.getFlaggedClients(apiKey, VerifierClients.data);
+      const grantedDatacapByVerifier = reportRepository.getGrantedDatacapByVerifier(VerifierClients.data);
+
+      const reports = await reportRepository.generateReport(
+        verifiersData,
+        VerifierClients,
+        flaggedClientsInfo,
+        grantedDatacapByVerifier
+      );
 
       return new ServiceResponse<Report[]>(ResponseStatus.Success, 'Reports found', reports, StatusCodes.OK);
     } catch (ex) {
       const error = (ex as Error).message;
       const errorMessage = `There was an error while generating report: ${error}`;
       logger.error(errorMessage);
-      //TODO: change the params to match actual github repo
+      //fixme change to allocator repo
       await githubErrorHandle(
         emojify(':warning:') + 'There was an error while generating report',
         error,
