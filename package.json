@@ -22,7 +22,12 @@
     "@asteasolutions/zod-to-openapi": "^7.0.0",
     "@wtfcode/byte-converter": "1.7.11",
     "axios": "^1.7.2",
+    "canvas": "^2.11.2",
+    "chart.js": "^4.4.3",
+    "chartjs-adapter-dayjs-4": "^1.0.4",
+    "chartjs-plugin-datalabels": "^2.1.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.11",
     "dotenv": "^16.4.5",
     "envalid": "^8.0.0",
     "express": "^4.19.2",
@@ -34,6 +39,7 @@
     "path": "^0.12.7",
     "pino-http": "^10.0.0",
     "swagger-ui-express": "^5.0.0",
+    "xbytes": "^1.8.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
