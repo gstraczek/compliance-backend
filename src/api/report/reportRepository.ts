@@ -245,10 +245,13 @@ export const reportRepository = {
         deals[4].y += 1;
       }
     }
-
+    //todo refactor
     clientInfo.map((client) => {
+      let clientLastDealTimestamp = 0;
       return client.allocations.map(({ allocation, allocationTimestamp }) => {
-        const clientDeals = clientsDeals.filter((deal) => deal.client_id === client.addressId);
+        const clientDeals = clientsDeals
+          .filter((deal) => deal.client_id === client.addressId)
+          .filter((deal) => deal.deal_timestamp > clientLastDealTimestamp);
         if (!clientDeals.length) return;
         let dealVal = 0;
         const lastDealTimestamps: {
@@ -263,19 +266,29 @@ export const reportRepository = {
           dealVal += clientDeals[i].deal_value;
 
           if (dealVal >= 0 && !lastDealTimestamps.first) {
-            lastDealTimestamps.first = clientDeals[i].deal_timestamp;
+            const currentDealTimestamp = clientDeals[i].deal_timestamp;
+            lastDealTimestamps.first = currentDealTimestamp;
+            clientLastDealTimestamp = currentDealTimestamp;
           }
           if (dealVal >= 0.25 * allocation && !lastDealTimestamps.quarter) {
-            lastDealTimestamps.quarter = clientDeals[i].deal_timestamp;
+            const currentDealTimestamp = clientDeals[i].deal_timestamp;
+            lastDealTimestamps.quarter = currentDealTimestamp;
+            clientLastDealTimestamp = currentDealTimestamp;
           }
           if (dealVal >= 0.5 * allocation && !lastDealTimestamps.half) {
-            lastDealTimestamps.half = clientDeals[i].deal_timestamp;
+            const currentDealTimestamp = clientDeals[i].deal_timestamp;
+            lastDealTimestamps.half = currentDealTimestamp;
+            clientLastDealTimestamp = currentDealTimestamp;
           }
           if (dealVal >= 0.75 * allocation && !lastDealTimestamps.third) {
-            lastDealTimestamps.third = clientDeals[i].deal_timestamp;
+            const currentDealTimestamp = clientDeals[i].deal_timestamp;
+            lastDealTimestamps.third = currentDealTimestamp;
+            clientLastDealTimestamp = currentDealTimestamp;
           }
           if (dealVal >= allocation && !lastDealTimestamps.full) {
-            lastDealTimestamps.full = clientDeals[i].deal_timestamp;
+            const currentDealTimestamp = clientDeals[i].deal_timestamp;
+            lastDealTimestamps.full = currentDealTimestamp;
+            clientLastDealTimestamp = currentDealTimestamp;
           }
 
           if (dealVal >= allocation) {
