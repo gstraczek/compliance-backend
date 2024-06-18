@@ -12,7 +12,6 @@ import {
   TimeScale,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { enUS } from 'date-fns/locale';
 import xbytes from 'xbytes';
 
 import { customCanvasBackgroundColor } from './plugins';
@@ -57,7 +56,7 @@ export default class GenerateChart {
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: datasets.map((e) => e.labels),
+        labels: opts.labels,
         datasets: datasets,
       },
       options: {
@@ -76,22 +75,11 @@ export default class GenerateChart {
             color: '#fff',
           },
           datalabels: {
-            anchor: 'center',
-            align: 'center',
-            clamp: true,
-            font: {
-              size: 20,
-              weight: 800,
-            },
-            formatter: (_, context) => {
-              const data: any = context.dataset.data[context.dataIndex];
-              return data.label;
-            },
+            display: false,
           },
         },
         scales: {
           y: {
-            stacked: true,
             type: 'logarithmic',
             title: {
               display: true,
@@ -106,18 +94,12 @@ export default class GenerateChart {
             },
           },
           x: {
-            adapters: {
-              date: {
-                locale: enUS,
-              },
-            },
             type: 'time',
             time: {
               displayFormats: {
                 day: 'yy-MM-dd',
               },
             },
-            reverse: true,
             stacked: true,
             title: {
               display: true,

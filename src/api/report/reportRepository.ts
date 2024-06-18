@@ -63,7 +63,7 @@ export const reportRepository = {
 
       // Generate bar chart image for clients datacap issuance
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapByVerifier);
-      reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_cahrt', 'png');
+      reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
 
       content.push('## List of clients and their allocations');
       content.push('');
@@ -350,12 +350,14 @@ export const reportRepository = {
         generateLabels: () => [],
       },
     };
-    const preparedTimestamp = grantedDatacapByVerifier.map((e) => {
-      const formattedDate = dayjs(e.allocationTimestamp * 1000)
-        .startOf('day')
-        .valueOf();
-      return { ...e, allocationTimestamp: formattedDate };
-    });
+    const preparedTimestamp = grantedDatacapByVerifier
+      .map((e) => {
+        const formattedDate = dayjs(e.allocationTimestamp * 1000)
+          .startOf('day')
+          .valueOf();
+        return { ...e, allocationTimestamp: formattedDate };
+      })
+      .sort((a, b) => a.allocationTimestamp - b.allocationTimestamp);
 
     const groupedByAllocationTimestamp = preparedTimestamp.reduce(
       (groups: Record<string, typeof grantedDatacapByVerifier>, allocation) => {
@@ -369,18 +371,20 @@ export const reportRepository = {
       },
       {}
     );
+    const data = Object.entries(groupedByAllocationTimestamp).map(([allocationTimestamp, allocations]) => {
+      return {
+        x: allocationTimestamp,
+        y: allocations.reduce((acc, curr) => acc + curr.allocation, 0),
+      };
+    });
 
-    const datasets = Object.entries(groupedByAllocationTimestamp).map(([allocationTimestamp, allocations]) => ({
-      labels: allocationTimestamp,
-      data: allocations.map((allocation) => ({
-        x: allocation.allocationTimestamp,
-        y: allocation.allocation,
-        label: allocation.addressId,
-      })),
-      backgroundColor: allocations.map(() => reportUtils.randomizeColor()),
-      borderWidth: 2,
-      barThickness: 80,
-    }));
+    const datasets = [
+      {
+        data: data,
+        backgroundColor: data.map(() => reportUtils.randomizeColor()),
+        borderWidth: 2,
+      },
+    ];
 
     return GenerateChart.getBase64Image(datasets, {
       title: 'Size of Datacap issuance over time by client address ID',
@@ -388,6 +392,7 @@ export const reportRepository = {
       titleXText: 'Date of Issuance',
       legendOpts,
       width: 3500,
+      labels: data.map((e) => e.x),
     });
   },
   uploadFile: async (basepath: string, base64: string, name: string, ext: string) => {
