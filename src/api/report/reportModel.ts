@@ -16,6 +16,12 @@ export const GetReportSchema = z.object({
   params: z.object({ verifierAddress: commonValidations.verifierAddress }),
 });
 
+export interface ClientsDeals {
+  deal_value: number;
+  deal_timestamp: number;
+  client_id: string;
+}
+
 export interface AllowanceArrayItem {
   id: number;
   error: string;
@@ -67,7 +73,7 @@ export interface Allowance {
   msgCID: string;
   retries: number;
   addressId: string;
-  allowance: string;
+  allowance: number;
   auditTrail: null | string;
   allowanceTTD: null | string;
   usedAllowance: string;
@@ -131,7 +137,7 @@ export interface getVerifierClientsDataResponse extends AxiosResponse {
 }
 
 export interface GrantedDatacapByVerifier {
-  allocation: string;
+  allocation: number;
   addressId: string;
   allocationTimestamp: number;
 }

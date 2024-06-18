@@ -12,20 +12,23 @@ import {
   TimeScale,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { enUS } from 'date-fns/locale';
 import xbytes from 'xbytes';
 
 import { customCanvasBackgroundColor } from './plugins';
 
 type Color = string;
 export interface BarChartEntry {
-  labels: string;
+  labels?: string;
   data: {
-    x: number;
-    y: string;
-    label: string;
+    x: string;
+    y: number;
+    label?: string;
   }[];
   backgroundColor: string[];
-  borderWidth: number;
+  borderWidth?: number;
+  categoryPercentage?: number;
+  barPercentage?: number;
 }
 
 interface BarOptions {
@@ -37,9 +40,10 @@ interface BarOptions {
   borderColors?: Color[];
   width?: number;
   height?: number;
+  labels?: string[];
 }
 
-export default class GenerateBarChart {
+export default class GenerateChart {
   static {
     Chart.defaults.font.weight = 'bold';
     Chart.defaults.font.size = 24;
@@ -72,7 +76,6 @@ export default class GenerateBarChart {
             color: '#fff',
           },
           datalabels: {
-            offset: 5,
             anchor: 'center',
             align: 'center',
             clamp: true,
@@ -105,10 +108,65 @@ export default class GenerateBarChart {
           x: {
             adapters: {
               date: {
-                locale: 'en-US',
+                locale: enUS,
               },
             },
+            type: 'time',
+            time: {
+              displayFormats: {
+                day: 'yy-MM-dd',
+              },
+            },
+            reverse: true,
             stacked: true,
+            title: {
+              display: true,
+              text: opts.titleXText,
+            },
+          },
+        },
+      },
+      plugins: [customCanvasBackgroundColor],
+    });
+    return chart.toBase64Image().split(',')[1];
+  }
+  public static getBase64HistogramImage(datasets: BarChartEntry[], opts: BarOptions): string {
+    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1000);
+    const ctx = canvas.getContext('2d');
+    const labels = opts.labels;
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: datasets,
+      },
+      options: {
+        plugins: {
+          legend: opts.legendOpts,
+          title: {
+            display: true,
+            text: opts.title,
+          },
+          customCanvasBackgroundColor: {
+            color: '#fff',
+          },
+          datalabels: {
+            display: false,
+          },
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: function (value) {
+                return Number.isInteger(value) ? value : null;
+              },
+            },
+            title: {
+              display: true,
+              text: opts.titleYText,
+            },
+          },
+          x: {
             title: {
               display: true,
               text: opts.titleXText,

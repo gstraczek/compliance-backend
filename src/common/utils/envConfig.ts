@@ -16,4 +16,9 @@ export const env = cleanEnv(process.env, {
   DATACAP_API_URL: str({ devDefault: testOnly('http://api.datacapstats.io/public/api') }),
   VERIFIER_CLIENTS_QUERY_LIMIT: num({ devDefault: testOnly(20) }),
   UPLOADS_DIR: str({ devDefault: testOnly('uploads') }),
+  DB_USER: str({ devDefault: testOnly('test') }),
+  DB_HOST: str({ devDefault: testOnly('localhost') }),
+  DB_PASSWORD: str({ devDefault: testOnly('test') }),
+  DB_PORT: num({ devDefault: testOnly(5432) }),
+  DB_NAME: str({ devDefault: testOnly('test') }),
 });

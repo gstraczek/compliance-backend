@@ -8,11 +8,24 @@ export const reportUtils = {
     const groupsSortedByTimestamp = sortGroupsByTimestamp(groupedByAddressId);
     return createContent(groupsSortedByTimestamp);
   },
+  datacapInClients: (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) => {
+    const groupedByAddressId = groupByAddressId(grantedDatacapByVerifier);
+    const groupsSortedByTimestamp = sortGroupsByTimestamp(groupedByAddressId);
+    return groupsSortedByTimestamp;
+  },
+  randomizeColor: () => {
+    const base = 128;
+    const range = 127;
+    const r = (base + Math.abs(Math.sin(Math.random() + 1) * range)) | 0;
+    const g = (base + Math.abs(Math.sin(Math.random() + 2) * range)) | 0;
+    const b = (base + Math.abs(Math.sin(Math.random() + 3) * range)) | 0;
+    return `rgba(${r}, ${g}, ${b})`;
+  },
 };
 
 const groupByAddressId = (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) =>
   grantedDatacapByVerifier.reduce(
-    (groups: Record<string, { allocation: string; allocationTimestamp: number }[]>, allocation) => {
+    (groups: Record<string, { allocation: number; allocationTimestamp: number }[]>, allocation) => {
       const key = allocation.addressId;
       if (!groups[key]) {
         groups[key] = [];
@@ -27,7 +40,7 @@ const groupByAddressId = (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) 
   );
 
 const sortGroupsByTimestamp = (
-  groupedByAddressId: Record<string, { allocation: string; allocationTimestamp: number }[]>
+  groupedByAddressId: Record<string, { allocation: number; allocationTimestamp: number }[]>
 ) =>
   Object.entries(groupedByAddressId).map(([addressId, allocations]) => ({
     addressId,
@@ -35,7 +48,7 @@ const sortGroupsByTimestamp = (
   }));
 
 const createContent = (
-  groupsSortedByTimestamp: { addressId: string; allocations: { allocation: string; allocationTimestamp: number }[] }[]
+  groupsSortedByTimestamp: { addressId: string; allocations: { allocation: number; allocationTimestamp: number }[] }[]
 ) => {
   const content = [];
   content.push('## Granted Allocation for Clients');

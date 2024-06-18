@@ -1,17 +1,21 @@
 import axios from 'axios';
 import { LegendOptions } from 'chart.js';
+import dayjs from 'dayjs';
 import fs from 'fs';
 import { emojify } from 'node-emoji';
 import path from 'path';
 
 import { axiosConfig } from '@/common/utils/axiosConfig';
 import { bytesToiB } from '@/common/utils/byteConverter';
-import GenerateBarChart from '@/common/utils/charts/generateBarChart';
+import GenerateChart, { BarChartEntry } from '@/common/utils/charts/generateChart';
 import { env } from '@/common/utils/envConfig';
+import { heightToUnix } from '@/common/utils/filplusEpoch';
+import { db } from '@/db';
 
 import {
   ClientsByVerifier,
   ClientsByVerifierData,
+  ClientsDeals,
   FlaggedClientsInfo,
   GetVerifiedClientsResponse,
   getVerifierClientsDataResponse,
@@ -26,7 +30,8 @@ export const reportRepository = {
     verifiersData: GetVerifiersDataItem,
     clientsData: ClientsByVerifierData,
     flaggedClientsInfo: FlaggedClientsInfo[],
-    grantedDatacapByVerifier: GrantedDatacapByVerifier[]
+    grantedDatacapByVerifier: GrantedDatacapByVerifier[],
+    clientsDeals: ClientsDeals[]
   ): Promise<any> => {
     const content: string[] = [];
     content.push('# Compliance Report');
@@ -40,13 +45,25 @@ export const reportRepository = {
         return `| ${warning} ${e.addressId}| ${e.name} | ${e.allowanceArray.length} | ${bytesToiB(totalAllocations, false)} |`;
       });
 
+      content.push('## Distribution of Datacap in Clients');
+      content.push('');
+      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapByVerifier);
+      const getDatacapInClientsChart = await reportRepository.getDatacapInClientsChart(
+        getDatacapInClientsDist,
+        clientsDeals
+      );
+      //generate histogram images based on clients allocation and deals made
+      getDatacapInClientsChart.map((chart, idx) => {
+        reportRepository.uploadFile(`${basepath}/datacap_in_clients/`, chart, `histogram_${idx}`, 'png');
+      });
+
       //calculate distinct sizes of allocations table
       const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapByVerifier);
       content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapByVerifier);
-      reportRepository.uploadFile(basepath, getBarChartImage, 'png');
+      reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_cahrt', 'png');
 
       content.push('## List of clients and their allocations');
       content.push('');
@@ -68,7 +85,7 @@ export const reportRepository = {
       content.push('### No Datacap issued for verifier');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
-    reportRepository.uploadFile(basepath, joinedContent, 'md');
+    reportRepository.uploadFile(basepath, joinedContent, 'report', 'md');
   },
   getVerifiersData: async (apiKey: string, verifierAddress: string): Promise<GetVerifiersDataItem> => {
     try {
@@ -102,7 +119,16 @@ export const reportRepository = {
         })
       );
 
-      const clientsData = { data: data.data, count: data.count };
+      const clientsData = {
+        data: data.data.map((e) => ({
+          ...e,
+          allowanceArray: e.allowanceArray.map((a) => ({
+            ...a,
+            allowance: Number(a.allowance),
+          })),
+        })),
+        count: data.count,
+      };
       if (!clientsData.data) {
         throw new Error('Clients not found for verifier' + verifiersAddressId);
       }
@@ -161,6 +187,149 @@ export const reportRepository = {
     return allowancePerClient;
   },
 
+  getClientsDeals: async (verifierClientsData: ClientsByVerifier[]): Promise<ClientsDeals[]> => {
+    const clientAddressIds = verifierClientsData.map((e) => e.addressId);
+    try {
+      db.connect();
+
+      const query = `
+  SELECT piece_size AS deal_value, client AS client_id, sector_start_epoch AS deal_timestamp
+  FROM current_state 
+  WHERE client = ANY($1::text[]) AND sector_start_epoch != -1
+  ORDER BY client, sector_start_epoch
+`;
+
+      const values = [clientAddressIds];
+
+      const result = await db.query(query, values);
+      //todo make calculations inside db query
+      const data = result.rows.map((row) => ({
+        ...row,
+        deal_timestamp: heightToUnix(Number(row.deal_timestamp)),
+        deal_value: Number(row.deal_value),
+      }));
+      return data;
+    } catch (error) {
+      throw new Error('Error getting clients deals data from the DB: ' + error);
+    }
+  },
+
+  getDatacapInClientsChart: async (
+    clientInfo: {
+      addressId: string;
+      allocations: {
+        allocation: number;
+        allocationTimestamp: number;
+      }[];
+    }[],
+    clientsDeals: ClientsDeals[]
+  ) => {
+    const labels = ['< 1', '1 - 12', '12 - 24', '24 - 48', '> 48'];
+    const allocationDeals = {
+      first: labels.map((x) => ({ x, y: 0 })),
+      quarter: labels.map((x) => ({ x, y: 0 })),
+      half: labels.map((x) => ({ x, y: 0 })),
+      third: labels.map((x) => ({ x, y: 0 })),
+      full: labels.map((x) => ({ x, y: 0 })),
+    };
+    function updateAllocationDeals(deals: { x: string; y: number }[], diff: number) {
+      if (diff < 1) {
+        deals[0].y += 1;
+      } else if (diff >= 1 && diff < 12) {
+        deals[1].y += 1;
+      } else if (diff >= 12 && diff < 24) {
+        deals[2].y += 1;
+      } else if (diff >= 24 && diff < 48) {
+        deals[3].y += 1;
+      } else {
+        deals[4].y += 1;
+      }
+    }
+
+    clientInfo.map((client) => {
+      return client.allocations.map(({ allocation, allocationTimestamp }) => {
+        const clientDeals = clientsDeals.filter((deal) => deal.client_id === client.addressId);
+        if (!clientDeals.length) return;
+        let dealVal = 0;
+        const lastDealTimestamps: {
+          first: null | number;
+          quarter: null | number;
+          half: null | number;
+          third: null | number;
+          full: null | number;
+        } = { first: null, quarter: null, half: null, third: null, full: null };
+
+        for (let i = 0; i < clientDeals.length; i++) {
+          dealVal += clientDeals[i].deal_value;
+
+          if (dealVal >= 0 && !lastDealTimestamps.first) {
+            lastDealTimestamps.first = clientDeals[i].deal_timestamp;
+          }
+          if (dealVal >= 0.25 * allocation && !lastDealTimestamps.quarter) {
+            lastDealTimestamps.quarter = clientDeals[i].deal_timestamp;
+          }
+          if (dealVal >= 0.5 * allocation && !lastDealTimestamps.half) {
+            lastDealTimestamps.half = clientDeals[i].deal_timestamp;
+          }
+          if (dealVal >= 0.75 * allocation && !lastDealTimestamps.third) {
+            lastDealTimestamps.third = clientDeals[i].deal_timestamp;
+          }
+          if (dealVal >= allocation && !lastDealTimestamps.full) {
+            lastDealTimestamps.full = clientDeals[i].deal_timestamp;
+          }
+
+          if (dealVal >= allocation) {
+            break;
+          }
+        }
+
+        if (lastDealTimestamps.first) {
+          const diff = dayjs.unix(lastDealTimestamps.first).diff(dayjs.unix(allocationTimestamp), 'hours');
+          updateAllocationDeals(allocationDeals.first, diff);
+        }
+        if (lastDealTimestamps.quarter) {
+          const diff = dayjs.unix(lastDealTimestamps.quarter).diff(dayjs.unix(allocationTimestamp), 'hours');
+          updateAllocationDeals(allocationDeals.quarter, diff);
+        }
+        if (lastDealTimestamps.half) {
+          const diff = dayjs.unix(lastDealTimestamps.half).diff(dayjs.unix(allocationTimestamp), 'hours');
+          updateAllocationDeals(allocationDeals.half, diff);
+        }
+        if (lastDealTimestamps.third) {
+          const diff = dayjs.unix(lastDealTimestamps.third).diff(dayjs.unix(allocationTimestamp), 'hours');
+          updateAllocationDeals(allocationDeals.third, diff);
+        }
+        if (lastDealTimestamps.full) {
+          const diff = dayjs.unix(lastDealTimestamps.full).diff(dayjs.unix(allocationTimestamp), 'hours');
+          updateAllocationDeals(allocationDeals.full, diff);
+        }
+
+        return;
+      });
+    });
+
+    const charts: string[] = Object.keys(allocationDeals).map((key) => {
+      const datasets: BarChartEntry[] = [
+        {
+          backgroundColor: labels.map(() => reportUtils.randomizeColor()),
+          data: allocationDeals[key as keyof typeof allocationDeals],
+          categoryPercentage: 1,
+          barPercentage: 1,
+        },
+      ];
+
+      return GenerateChart.getBase64HistogramImage(datasets, {
+        labels: labels,
+        title: `Deals made by clients until reached ${key} Datacap allocation`,
+        titleYText: 'Amount of deals made',
+        titleXText: `Time from Datacap issuance to ${key} Datacap allocation (hours)`,
+        width: 2000,
+      });
+    });
+
+    return charts;
+  },
+
   getBarChartImage: async (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) => {
     const legendOpts: Partial<LegendOptions<'bar'> & { labels: any }> = {
       display: true,
@@ -168,33 +337,25 @@ export const reportRepository = {
         generateLabels: () => [],
       },
     };
-    const prepareTimestamp = grantedDatacapByVerifier.map((e) => {
-      const date = new Date(e.allocationTimestamp * 1000);
-      date.setHours(0, 0, 0, 0);
-      const formattedDate = date.getTime();
+    const preparedTimestamp = grantedDatacapByVerifier.map((e) => {
+      const formattedDate = dayjs(e.allocationTimestamp * 1000)
+        .startOf('day')
+        .valueOf();
       return { ...e, allocationTimestamp: formattedDate };
     });
 
-    const groupedByAllocationTimestamp = prepareTimestamp.reduce(
+    const groupedByAllocationTimestamp = preparedTimestamp.reduce(
       (groups: Record<string, typeof grantedDatacapByVerifier>, allocation) => {
-        const key = new Date(allocation.allocationTimestamp).toISOString().split('T')[0];
+        const key = dayjs(allocation.allocationTimestamp).format('YYYY-MM-DD');
         if (!groups[key]) {
           groups[key] = [];
         }
+
         groups[key].push(allocation);
         return groups;
       },
       {}
     );
-
-    const randomizeColor = () => {
-      const base = 128;
-      const range = 127;
-      const r = (base + Math.abs(Math.sin(Math.random() + 1) * range)) | 0;
-      const g = (base + Math.abs(Math.sin(Math.random() + 2) * range)) | 0;
-      const b = (base + Math.abs(Math.sin(Math.random() + 3) * range)) | 0;
-      return `rgba(${r}, ${g}, ${b})`;
-    };
 
     const datasets = Object.entries(groupedByAllocationTimestamp).map(([allocationTimestamp, allocations]) => ({
       labels: allocationTimestamp,
@@ -203,12 +364,12 @@ export const reportRepository = {
         y: allocation.allocation,
         label: allocation.addressId,
       })),
-      backgroundColor: allocations.map(() => randomizeColor()),
-      borderWidth: 1,
+      backgroundColor: allocations.map(() => reportUtils.randomizeColor()),
+      borderWidth: 2,
       barThickness: 80,
     }));
 
-    return GenerateBarChart.getBase64Image(datasets, {
+    return GenerateChart.getBase64Image(datasets, {
       title: 'Size of Datacap issuance over time by client address ID',
       titleYText: 'Size of Issuance',
       titleXText: 'Date of Issuance',
@@ -216,14 +377,14 @@ export const reportRepository = {
       width: 3500,
     });
   },
-  uploadFile: async (basepath: string, base64: string, ext: string) => {
-    const filePath = path.join(basepath, `report.${ext}`);
+  uploadFile: async (basepath: string, base64: string, name: string, ext: string) => {
+    const filePath = path.join(basepath, `${name}.${ext}`);
     try {
       fs.mkdirSync(basepath, { recursive: true });
       fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
       return filePath;
     } catch (e) {
-      throw new Error('Error writing file');
+      throw new Error('Error writing file' + e);
     }
   },
 };
