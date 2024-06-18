@@ -25,6 +25,8 @@ import {
 } from './reportModel';
 import { reportUtils } from './reportUtils';
 
+const LABELS = ['< 1', '1 - 12', '12 - 24', '24 - 48', '> 48'];
+
 export const reportRepository = {
   generateReport: async (
     verifiersData: GetVerifiersDataItem,
@@ -193,9 +195,9 @@ export const reportRepository = {
       db.connect();
 
       const query = `
-  SELECT piece_size AS deal_value, client AS client_id, sector_start_epoch AS deal_timestamp
+  SELECT piece_size AS deal_value, client AS client_id, start_epoch AS deal_timestamp
   FROM current_state 
-  WHERE client = ANY($1::text[]) AND sector_start_epoch != -1
+  WHERE client = ANY($1::text[]) AND start_epoch != -1
   ORDER BY client, sector_start_epoch
 `;
 
@@ -206,7 +208,7 @@ export const reportRepository = {
       const data = result.rows.map((row) => ({
         ...row,
         deal_timestamp: heightToUnix(Number(row.deal_timestamp)),
-        deal_value: Number(row.deal_value),
+        deal_value: BigInt(row.deal_value),
       }));
       return data;
     } catch (error) {
@@ -224,14 +226,14 @@ export const reportRepository = {
     }[],
     clientsDeals: ClientsDeals[]
   ) => {
-    const labels = ['< 1', '1 - 12', '12 - 24', '24 - 48', '> 48'];
     const allocationDeals = {
-      first: labels.map((x) => ({ x, y: 0 })),
-      quarter: labels.map((x) => ({ x, y: 0 })),
-      half: labels.map((x) => ({ x, y: 0 })),
-      third: labels.map((x) => ({ x, y: 0 })),
-      full: labels.map((x) => ({ x, y: 0 })),
+      first: reportRepository.generateInitialGroups(),
+      quarter: reportRepository.generateInitialGroups(),
+      half: reportRepository.generateInitialGroups(),
+      third: reportRepository.generateInitialGroups(),
+      full: reportRepository.generateInitialGroups(),
     };
+
     function updateAllocationDeals(deals: { x: string; y: number }[], diff: number) {
       if (diff < 1) {
         deals[0].y += 1;
@@ -245,86 +247,39 @@ export const reportRepository = {
         deals[4].y += 1;
       }
     }
-    //todo refactor
-    clientInfo.map((client) => {
-      let clientLastDealTimestamp = 0;
-      return client.allocations.map(({ allocation, allocationTimestamp }) => {
-        const clientDeals = clientsDeals
-          .filter((deal) => deal.client_id === client.addressId)
-          .filter((deal) => deal.deal_timestamp > clientLastDealTimestamp);
-        if (!clientDeals.length) return;
-        let dealVal = 0;
-        const lastDealTimestamps: {
-          first: null | number;
-          quarter: null | number;
-          half: null | number;
-          third: null | number;
-          full: null | number;
-        } = { first: null, quarter: null, half: null, third: null, full: null };
 
-        for (let i = 0; i < clientDeals.length; i++) {
-          dealVal += clientDeals[i].deal_value;
-
-          if (dealVal >= 0 && !lastDealTimestamps.first) {
-            const currentDealTimestamp = clientDeals[i].deal_timestamp;
-            lastDealTimestamps.first = currentDealTimestamp;
-            clientLastDealTimestamp = currentDealTimestamp;
+    clientInfo.forEach((client) => {
+      for (const { allocation, allocationTimestamp } of client.allocations) {
+        let allocationUsed = 0n;
+        let threshold = 0;
+        for (const deal of clientsDeals) {
+          if (deal.client_id !== client.addressId) return;
+          allocationUsed += deal.deal_value;
+          if (threshold === 0) {
+            updateAllocationDeals(allocationDeals.first, deal?.deal_timestamp - allocationTimestamp);
+            threshold = 1;
           }
-          if (dealVal >= 0.25 * allocation && !lastDealTimestamps.quarter) {
-            const currentDealTimestamp = clientDeals[i].deal_timestamp;
-            lastDealTimestamps.quarter = currentDealTimestamp;
-            clientLastDealTimestamp = currentDealTimestamp;
-          }
-          if (dealVal >= 0.5 * allocation && !lastDealTimestamps.half) {
-            const currentDealTimestamp = clientDeals[i].deal_timestamp;
-            lastDealTimestamps.half = currentDealTimestamp;
-            clientLastDealTimestamp = currentDealTimestamp;
-          }
-          if (dealVal >= 0.75 * allocation && !lastDealTimestamps.third) {
-            const currentDealTimestamp = clientDeals[i].deal_timestamp;
-            lastDealTimestamps.third = currentDealTimestamp;
-            clientLastDealTimestamp = currentDealTimestamp;
-          }
-          if (dealVal >= allocation && !lastDealTimestamps.full) {
-            const currentDealTimestamp = clientDeals[i].deal_timestamp;
-            lastDealTimestamps.full = currentDealTimestamp;
-            clientLastDealTimestamp = currentDealTimestamp;
-          }
-
-          if (dealVal >= allocation) {
-            break;
+          if (threshold === 1 && allocationUsed >= allocation * 0.25) {
+            updateAllocationDeals(allocationDeals.quarter, deal.deal_timestamp - allocationTimestamp);
+            threshold = 2;
+          } else if (threshold === 2 && allocationUsed >= allocation * 0.5) {
+            updateAllocationDeals(allocationDeals.half, deal.deal_timestamp - allocationTimestamp);
+            threshold = 3;
+          } else if (threshold === 3 && allocationUsed >= allocation * 0.75) {
+            updateAllocationDeals(allocationDeals.third, deal.deal_timestamp - allocationTimestamp);
+            threshold = 4;
+          } else if (threshold === 4 && allocationUsed >= allocation) {
+            updateAllocationDeals(allocationDeals.full, deal.deal_timestamp - allocationTimestamp);
+            threshold = 5;
           }
         }
-
-        if (lastDealTimestamps.first) {
-          const diff = dayjs.unix(lastDealTimestamps.first).diff(dayjs.unix(allocationTimestamp), 'hours');
-          updateAllocationDeals(allocationDeals.first, diff);
-        }
-        if (lastDealTimestamps.quarter) {
-          const diff = dayjs.unix(lastDealTimestamps.quarter).diff(dayjs.unix(allocationTimestamp), 'hours');
-          updateAllocationDeals(allocationDeals.quarter, diff);
-        }
-        if (lastDealTimestamps.half) {
-          const diff = dayjs.unix(lastDealTimestamps.half).diff(dayjs.unix(allocationTimestamp), 'hours');
-          updateAllocationDeals(allocationDeals.half, diff);
-        }
-        if (lastDealTimestamps.third) {
-          const diff = dayjs.unix(lastDealTimestamps.third).diff(dayjs.unix(allocationTimestamp), 'hours');
-          updateAllocationDeals(allocationDeals.third, diff);
-        }
-        if (lastDealTimestamps.full) {
-          const diff = dayjs.unix(lastDealTimestamps.full).diff(dayjs.unix(allocationTimestamp), 'hours');
-          updateAllocationDeals(allocationDeals.full, diff);
-        }
-
-        return;
-      });
+      }
     });
 
     const charts: string[] = Object.keys(allocationDeals).map((key) => {
       const datasets: BarChartEntry[] = [
         {
-          backgroundColor: labels.map(() => reportUtils.randomizeColor()),
+          backgroundColor: LABELS.map(() => reportUtils.randomizeColor()),
           data: allocationDeals[key as keyof typeof allocationDeals],
           categoryPercentage: 1,
           barPercentage: 1,
@@ -332,7 +287,7 @@ export const reportRepository = {
       ];
 
       return GenerateChart.getBase64HistogramImage(datasets, {
-        labels: labels,
+        labels: LABELS,
         title: `Deals made by clients until reached ${key} Datacap allocation`,
         titleYText: 'Amount of deals made',
         titleXText: `Time from Datacap issuance to ${key} Datacap allocation (hours)`,
@@ -404,5 +359,8 @@ export const reportRepository = {
     } catch (e) {
       throw new Error('Error writing file' + e);
     }
+  },
+  generateInitialGroups: () => {
+    return LABELS.map((x) => ({ x, y: 0 }));
   },
 };

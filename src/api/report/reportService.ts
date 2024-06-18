@@ -17,9 +17,12 @@ export const reportService = {
 
       const verifiersData = await reportRepository.getVerifiersData(apiKey, verifierAddress);
       const VerifierClients = await reportRepository.getClientsByVerifierId(apiKey, verifiersData.addressId);
-      const flaggedClientsInfo = await reportRepository.getFlaggedClients(apiKey, VerifierClients.data);
+      const [flaggedClientsInfo, clientsDeals] = await Promise.all([
+        reportRepository.getFlaggedClients(apiKey, VerifierClients.data),
+        reportRepository.getClientsDeals(VerifierClients.data),
+      ]);
+
       const grantedDatacapByVerifier = reportRepository.getGrantedDatacapByVerifier(VerifierClients.data);
-      const clientsDeals = await reportRepository.getClientsDeals(VerifierClients.data);
 
       const reports = await reportRepository.generateReport(
         verifiersData,

@@ -17,7 +17,7 @@ export const GetReportSchema = z.object({
 });
 
 export interface ClientsDeals {
-  deal_value: number;
+  deal_value: bigint;
   deal_timestamp: number;
   client_id: string;
 }
