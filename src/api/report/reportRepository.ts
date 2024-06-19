@@ -198,7 +198,7 @@ export const reportRepository = {
   SELECT piece_size AS deal_value, client AS client_id, start_epoch AS deal_timestamp
   FROM current_state 
   WHERE client = ANY($1::text[]) AND start_epoch != -1
-  ORDER BY client, sector_start_epoch
+  ORDER BY client, start_epoch
 `;
 
       const values = [clientAddressIds];
@@ -248,12 +248,23 @@ export const reportRepository = {
       }
     }
 
+    const groupedClientDeals = clientsDeals.reduce((groups: Record<string, ClientsDeals[]>, deal) => {
+      const key = deal.client_id;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(deal);
+      return groups;
+    }, {});
+
     clientInfo.forEach((client) => {
+      let dealIdx = 0;
       for (const { allocation, allocationTimestamp } of client.allocations) {
         let allocationUsed = 0n;
         let threshold = 0;
-        for (const deal of clientsDeals) {
-          if (deal.client_id !== client.addressId) return;
+        for (let i = dealIdx; i < groupedClientDeals[client.addressId]?.length; i++) {
+          const deal = clientsDeals[i];
+
           allocationUsed += deal.deal_value;
           if (threshold === 0) {
             updateAllocationDeals(allocationDeals.first, deal?.deal_timestamp - allocationTimestamp);
@@ -271,6 +282,8 @@ export const reportRepository = {
           } else if (threshold === 4 && allocationUsed >= allocation) {
             updateAllocationDeals(allocationDeals.full, deal.deal_timestamp - allocationTimestamp);
             threshold = 5;
+            dealIdx = i + 1;
+            break;
           }
         }
       }
