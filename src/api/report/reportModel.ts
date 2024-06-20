@@ -136,8 +136,59 @@ export interface getVerifierClientsDataResponse extends AxiosResponse {
   data: ClientsByVerifierData;
 }
 
-export interface GrantedDatacapByVerifier {
+export interface GrantedDatacapInClients {
   allocation: number;
   addressId: string;
   allocationTimestamp: number;
+}
+
+export interface ProviderDistribution {
+  provider: string;
+  total_deal_size: string;
+  unique_data_size: string;
+  duplication_percentage: number;
+  percentage: number;
+  retrieval_success_rate: number | string;
+  total_sealed_deals: bigint;
+}
+
+export interface Location {
+  city?: string;
+  region?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  orgName?: string;
+}
+
+export interface ProviderDistributionTable {
+  provider: string;
+  percentage: number;
+  retrieval_success_rate: number | null;
+  total_sealed_deals: bigint;
+  location: Location | null;
+}
+
+export interface MinerInfo {
+  PeerId: string;
+  Multiaddrs: string[] | null | undefined;
+  SectorSize: number;
+}
+
+export interface Retrievability {
+  provider_id: string;
+  success_rate: number;
+  total_deal_size: number;
+}
+
+export interface SparkSuccessRate {
+  miner_id: string;
+  success_rate: number;
+}
+
+export interface GeoMapEntry {
+  label: string;
+  value: number;
+  latitude: number;
+  longitude: number;
 }

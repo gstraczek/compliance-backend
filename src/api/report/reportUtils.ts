@@ -63,17 +63,17 @@ const createContent = (
   groupsSortedByTimestamp.map(({ addressId, allocations }) => {
     const allocationWithPercentage = allocations.map((allocation, index) => {
       if (index === 0) {
-        return xbytes(Number(allocation.allocation));
+        return xbytes(Number(allocation.allocation), { iec: true });
       }
       const previousAllocation = Number(allocations[index - 1].allocation);
       const currentAllocation = Number(allocation.allocation);
       const percentage = (currentAllocation / previousAllocation) * 100;
-      return `${xbytes(currentAllocation)} (${percentage}%)`;
+      return `${xbytes(currentAllocation, { iec: true })} (${percentage}%)`;
     });
 
     const remainingAllocations = allocations.slice(3);
     const remainingAlloc =
-      remainingAllocations.map((allocation) => xbytes(Number(allocation.allocation))).join(', ') || '-';
+      remainingAllocations.map((allocation) => xbytes(Number(allocation.allocation), { iec: true })).join(', ') || '-';
     content.push(
       `|${addressId}| ${allocationWithPercentage[0] || '-'} | ${allocationWithPercentage[1] || '-'} | ${allocationWithPercentage[2] || '-'} | ${remainingAlloc} |`
     );

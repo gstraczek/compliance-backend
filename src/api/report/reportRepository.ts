@@ -1,27 +1,41 @@
+import { resolve4, resolve6 } from 'node:dns';
+
 import axios from 'axios';
 import { LegendOptions } from 'chart.js';
 import dayjs from 'dayjs';
 import fs from 'fs';
+import { Multiaddr } from 'multiaddr';
 import { emojify } from 'node-emoji';
 import path from 'path';
+import xbytes from 'xbytes';
 
 import { axiosConfig } from '@/common/utils/axiosConfig';
-import { bytesToiB } from '@/common/utils/byteConverter';
 import GenerateChart, { BarChartEntry } from '@/common/utils/charts/generateChart';
+import GeoMap from '@/common/utils/charts/geoMap';
+import { clientDealsQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
 import { env } from '@/common/utils/envConfig';
-import { heightToUnix } from '@/common/utils/filplusEpoch';
+import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
+import { isNotEmpty } from '@/common/utils/typeGuards';
 import { db } from '@/db';
+import { logger } from '@/server';
 
 import {
   ClientsByVerifier,
   ClientsByVerifierData,
   ClientsDeals,
   FlaggedClientsInfo,
+  GeoMapEntry,
   GetVerifiedClientsResponse,
   getVerifierClientsDataResponse,
   GetVerifiersDataItem,
   GetVerifiersResponse,
-  GrantedDatacapByVerifier,
+  GrantedDatacapInClients,
+  Location,
+  MinerInfo,
+  ProviderDistribution,
+  ProviderDistributionTable,
+  Retrievability,
+  SparkSuccessRate,
 } from './reportModel';
 import { reportUtils } from './reportUtils';
 
@@ -32,8 +46,9 @@ export const reportRepository = {
     verifiersData: GetVerifiersDataItem,
     clientsData: ClientsByVerifierData,
     flaggedClientsInfo: FlaggedClientsInfo[],
-    grantedDatacapByVerifier: GrantedDatacapByVerifier[],
-    clientsDeals: ClientsDeals[]
+    grantedDatacapInClients: GrantedDatacapInClients[],
+    clientsDeals: ClientsDeals[],
+    grantedDatacapInProviders: ProviderDistributionTable[]
   ): Promise<any> => {
     const content: string[] = [];
     content.push('# Compliance Report');
@@ -44,12 +59,12 @@ export const reportRepository = {
         const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
           ? emojify(':warning:')
           : '';
-        return `| ${warning} ${e.addressId}| ${e.name} | ${e.allowanceArray.length} | ${bytesToiB(totalAllocations, false)} |`;
+        return `| ${warning} ${e.addressId}| ${e.name} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
       });
 
       content.push('## Distribution of Datacap in Clients');
       content.push('');
-      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapByVerifier);
+      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapInClients);
       const getDatacapInClientsChart = await reportRepository.getDatacapInClientsChart(
         getDatacapInClientsDist,
         clientsDeals
@@ -60,11 +75,11 @@ export const reportRepository = {
       });
 
       //calculate distinct sizes of allocations table
-      const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapByVerifier);
+      const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapInClients);
       content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
-      const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapByVerifier);
+      const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
       reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
 
       content.push('## List of clients and their allocations');
@@ -73,6 +88,25 @@ export const reportRepository = {
       content.push('|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
       content.push('');
+
+      content.push('## Distribution of Datacap in Storage Providers');
+      content.push('');
+      content.push(
+        '| Provider | Location | Total Deals Sealed | Percentage of Total Datacap | Retrieval Success Rate |'
+      );
+      content.push('|-|-|-|-|-|');
+      grantedDatacapInProviders.forEach((provider) => {
+        content.push(
+          `| ${provider.provider} | ${provider.location?.city || '-'} | ${provider.total_sealed_deals.toString()} | ${provider.percentage.toFixed(
+            2
+          )} % | ${provider.retrieval_success_rate || '-'} |`
+        );
+      });
+
+      // Generate image for provider distribution
+      const providersGeoMap = reportRepository.getImageForProviderDistribution(grantedDatacapInProviders);
+
+      await reportRepository.uploadFile(basepath, providersGeoMap, 'providers_distribution_geomap', 'png');
 
       if (flaggedClientsInfo.length > 0) {
         content.push(`### Clients with ${emojify(':warning:')} flag received datacap from more than one verifier`);
@@ -89,6 +123,7 @@ export const reportRepository = {
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
     reportRepository.uploadFile(basepath, joinedContent, 'report', 'md');
   },
+
   getVerifiersData: async (apiKey: string, verifierAddress: string): Promise<GetVerifiersDataItem> => {
     try {
       const {
@@ -171,7 +206,14 @@ export const reportRepository = {
     }
   },
 
-  getGrantedDatacapByVerifier: (VerifierClientsData: ClientsByVerifier[]): GrantedDatacapByVerifier[] => {
+  getGrantedDatacapInProviders: async (VerifierClientsData: ClientsByVerifier[]) => {
+    const distribution = await reportRepository.getStorageProvidersDistribution(
+      VerifierClientsData.map((e) => e.addressId)
+    );
+    return distribution;
+  },
+
+  getGrantedDatacapInClients: (VerifierClientsData: ClientsByVerifier[]): GrantedDatacapInClients[] => {
     const ClientsData = VerifierClientsData.map((e) => ({
       addressId: e.addressId,
       allowanceArray: e.allowanceArray,
@@ -189,22 +231,189 @@ export const reportRepository = {
     return allowancePerClient;
   },
 
+  getStorageProvidersDistribution: async (clients: string[]): Promise<ProviderDistributionTable[] | []> => {
+    const currentEpoch = getCurrentEpoch();
+    logger.info({ clients, currentEpoch }, 'Getting storage provider distribution');
+    const queryResult = await db.query(providerDistributionQuery, [clients, currentEpoch]);
+    const distributions: ProviderDistribution[] = queryResult.rows;
+    const providers = distributions.map((r) => r.provider);
+    if (providers.length === 0) {
+      logger.debug('No storage providers found for' + clients);
+      return [];
+    }
+    logger.debug({ distributions }, 'Got Storage provider distribution');
+
+    const total = distributions.reduce((acc, cur) => acc + parseFloat(cur.total_deal_size), 0);
+    for (const distribution of distributions) {
+      distribution.percentage = parseFloat(distribution.total_deal_size) / total;
+    }
+
+    const ProvidersDistribution: ProviderDistributionTable[] = [];
+    const providersRetrievability = await reportRepository.providersRetrievability(
+      distributions,
+      env.RETRIEVABILITY_RANGE_DAYS
+    );
+
+    for (const item of distributions) {
+      const location = await reportRepository.getLocation(item.provider);
+      const retrieval_success_rate =
+        providersRetrievability.retrievability.find((x) => x.provider_id === item.provider)?.success_rate || null;
+      const total_sealed_deals =
+        (BigInt(item.total_deal_size) * BigInt(item.duplication_percentage * 100)) / BigInt(100);
+      const percentage = item.percentage;
+
+      ProvidersDistribution.push({
+        provider: item.provider,
+        location,
+        retrieval_success_rate,
+        total_sealed_deals,
+        percentage,
+      });
+    }
+    return ProvidersDistribution;
+    // return withLocations.sort((a, b) => a.orgName?.localeCompare(b.orgName ?? '') ?? 0);
+  },
+
+  providersRetrievability: async (
+    providerDistributions: ProviderDistribution[],
+    retrievabilityRange: number
+  ): Promise<{ retrievability: Retrievability[]; avgProviderScore: number }> => {
+    try {
+      const from = new Date(Date.now() - retrievabilityRange * 24 * 3600 * 1000).toISOString().split('T')[0];
+      const to = new Date().toISOString().split('T')[0];
+
+      const sparkData = await reportRepository.fetchRetrievalSuccessRate(from, to);
+
+      const retrievability = reportRepository.createRetrievability(providerDistributions, sparkData);
+      if (retrievability.length === 0) return { retrievability: [], avgProviderScore: 0 };
+
+      const avgProviderScore = reportRepository.calculateAvgProviderScore(retrievability);
+
+      return { retrievability, avgProviderScore };
+    } catch (error) {
+      logger.error('Error getting retrievability data: ' + error);
+      return { retrievability: [], avgProviderScore: 0 };
+    }
+  },
+
+  calculateAvgProviderScore: (matchedRetrievability: Retrievability[]): number => {
+    const { totalClientDealSize, totalSuccessRate } = matchedRetrievability.reduce(
+      (acc, { total_deal_size, success_rate }) => {
+        acc.totalClientDealSize += total_deal_size;
+        acc.totalSuccessRate += success_rate * total_deal_size;
+        return acc;
+      },
+      { totalClientDealSize: 0, totalSuccessRate: 0 }
+    );
+
+    if (totalSuccessRate === 0 || totalClientDealSize === 0) return 0;
+    return totalSuccessRate / totalClientDealSize;
+  },
+
+  createRetrievability: (
+    providerDistributions: ProviderDistribution[],
+    sparkData: SparkSuccessRate[]
+  ): Retrievability[] => {
+    const retrievability = providerDistributions
+      .map(({ provider, total_deal_size }) => {
+        const sparkItem = sparkData.find((x) => x.miner_id === provider);
+
+        if (!sparkItem) return null;
+
+        return {
+          provider_id: sparkItem.miner_id,
+          success_rate: sparkItem.success_rate,
+          total_deal_size: Number(total_deal_size),
+        };
+      })
+      .filter(isNotEmpty);
+
+    return retrievability;
+  },
+
+  fetchRetrievalSuccessRate: async (from: string, to: string): Promise<SparkSuccessRate[]> => {
+    const response = await axios.get(
+      `https://stats.filspark.com/miners/retrieval-success-rate/summary?from=${from}&to=${to}`
+    );
+    const sparkData: SparkSuccessRate[] = response.data;
+
+    return sparkData;
+  },
+
+  getLocation: async (provider: string): Promise<Location | null> => {
+    const minerInfo = await reportRepository.getMinerInfo(provider);
+    if (minerInfo.Multiaddrs == null || minerInfo.Multiaddrs.length === 0) {
+      return null;
+    }
+    const ips: string[] = [];
+    for (const multiAddr of minerInfo.Multiaddrs) {
+      logger.info({ multiAddr }, 'Getting IP from multiaddr');
+      try {
+        const ip = await reportRepository.getIpFromMultiaddr(multiAddr);
+        ips.push(...ip);
+      } catch (e) {
+        logger.warn({ multiAddr, e }, 'Failed to get IP from multiaddr');
+        return null;
+      }
+    }
+    for (const ip of ips) {
+      logger.info({ ip }, 'Getting location for IP');
+      const { data } = await axios.get(`https://ipinfo.io/${ip}?token=${env.IP_INFO_TOKEN}`);
+      if (data.bogon === true) {
+        continue;
+      }
+      logger.info({ ip, data }, 'Got location for IP');
+      return {
+        city: data.city,
+        country: data.country,
+        region: data.region,
+        latitude: data.loc != null ? parseFloat(data.loc.split(',')[0]) : undefined,
+        longitude: data.loc != null ? parseFloat(data.loc.split(',')[1]) : undefined,
+        orgName: data.org != null ? data.org.split(' ').slice(1).join(' ') : 'Unknown',
+      };
+    }
+    return null;
+  },
+
+  getIpFromMultiaddr: async (multiAddr: string): Promise<string[]> => {
+    const m = new Multiaddr(Buffer.from(multiAddr, 'base64'));
+    const address = m.nodeAddress().address;
+    const proto = m.protos()[0].name;
+    switch (proto) {
+      case 'dns4':
+        return resolve4.__promisify__(address);
+      case 'dns6':
+        return resolve6.__promisify__(address);
+      case 'ip4':
+      case 'ip6':
+        return [address];
+      default:
+        logger.error({ multiAddr }, 'Unknown protocol');
+        return [];
+    }
+  },
+
+  getMinerInfo: async (miner: string): Promise<MinerInfo> => {
+    logger.info({ miner }, 'Getting miner info');
+
+    const response = await axios.post('https://api.node.glif.io/rpc/v0', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'Filecoin.StateMinerInfo',
+      params: [miner, null],
+    });
+    return response.data.result;
+  },
+
   getClientsDeals: async (verifierClientsData: ClientsByVerifier[]): Promise<ClientsDeals[]> => {
     const clientAddressIds = verifierClientsData.map((e) => e.addressId);
     try {
       db.connect();
 
-      const query = `
-  SELECT piece_size AS deal_value, client AS client_id, start_epoch AS deal_timestamp
-  FROM current_state 
-  WHERE client = ANY($1::text[]) AND start_epoch != -1
-  ORDER BY client, start_epoch
-`;
-
       const values = [clientAddressIds];
 
-      const result = await db.query(query, values);
-      //todo make calculations inside db query
+      const result = await db.query(clientDealsQuery, values);
+
       const data = result.rows.map((row) => ({
         ...row,
         deal_timestamp: heightToUnix(Number(row.deal_timestamp)),
@@ -311,14 +520,14 @@ export const reportRepository = {
     return charts;
   },
 
-  getBarChartImage: async (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) => {
+  getBarChartImage: async (grantedDatacapInClients: GrantedDatacapInClients[]) => {
     const legendOpts: Partial<LegendOptions<'bar'> & { labels: any }> = {
       display: true,
       labels: {
         generateLabels: () => [],
       },
     };
-    const preparedTimestamp = grantedDatacapByVerifier
+    const preparedTimestamp = grantedDatacapInClients
       .map((e) => {
         const formattedDate = dayjs(e.allocationTimestamp * 1000)
           .startOf('day')
@@ -328,7 +537,7 @@ export const reportRepository = {
       .sort((a, b) => a.allocationTimestamp - b.allocationTimestamp);
 
     const groupedByAllocationTimestamp = preparedTimestamp.reduce(
-      (groups: Record<string, typeof grantedDatacapByVerifier>, allocation) => {
+      (groups: Record<string, typeof grantedDatacapInClients>, allocation) => {
         const key = dayjs(allocation.allocationTimestamp).format('YYYY-MM-DD');
         if (!groups[key]) {
           groups[key] = [];
@@ -375,5 +584,20 @@ export const reportRepository = {
   },
   generateInitialGroups: () => {
     return LABELS.map((x) => ({ x, y: 0 }));
+  },
+  getImageForProviderDistribution(providerDistributions: ProviderDistributionTable[]): string {
+    const geoMapEntries: GeoMapEntry[] = [];
+
+    for (const distribution of providerDistributions) {
+      if (distribution.location?.longitude != null && distribution.location?.latitude != null) {
+        geoMapEntries.push({
+          longitude: distribution.location.longitude,
+          latitude: distribution.location.latitude,
+          value: distribution.percentage,
+          label: distribution.provider,
+        });
+      }
+    }
+    return GeoMap.getImage(geoMapEntries);
   },
 };

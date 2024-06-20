@@ -17,19 +17,20 @@ export const reportService = {
 
       const verifiersData = await reportRepository.getVerifiersData(apiKey, verifierAddress);
       const VerifierClients = await reportRepository.getClientsByVerifierId(apiKey, verifiersData.addressId);
-      const [flaggedClientsInfo, clientsDeals] = await Promise.all([
+      const [flaggedClientsInfo, clientsDeals, grantedDatacapInProviders] = await Promise.all([
         reportRepository.getFlaggedClients(apiKey, VerifierClients.data),
         reportRepository.getClientsDeals(VerifierClients.data),
+        reportRepository.getGrantedDatacapInProviders(VerifierClients.data),
       ]);
-
-      const grantedDatacapByVerifier = reportRepository.getGrantedDatacapByVerifier(VerifierClients.data);
+      const grantedDatacapInClients = reportRepository.getGrantedDatacapInClients(VerifierClients.data);
 
       const reports = await reportRepository.generateReport(
         verifiersData,
         VerifierClients,
         flaggedClientsInfo,
-        grantedDatacapByVerifier,
-        clientsDeals
+        grantedDatacapInClients,
+        clientsDeals,
+        grantedDatacapInProviders
       );
 
       return new ServiceResponse<Report[]>(ResponseStatus.Success, 'Reports found', reports, StatusCodes.OK);

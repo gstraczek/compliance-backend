@@ -21,4 +21,6 @@ export const env = cleanEnv(process.env, {
   DB_PASSWORD: str({ devDefault: testOnly('test') }),
   DB_PORT: num({ devDefault: testOnly(5432) }),
   DB_NAME: str({ devDefault: testOnly('test') }),
+  IP_INFO_TOKEN: str({ devDefault: testOnly('test') }),
+  RETRIEVABILITY_RANGE_DAYS: num({ devDefault: testOnly(10), default: 30 }),
 });
