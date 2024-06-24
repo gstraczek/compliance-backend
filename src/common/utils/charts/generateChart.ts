@@ -10,6 +10,7 @@ import {
   LinearScale,
   LogarithmicScale,
   TimeScale,
+  Title,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import xbytes from 'xbytes';
@@ -46,11 +47,20 @@ export default class GenerateChart {
   static {
     Chart.defaults.font.weight = 'bold';
     Chart.defaults.font.size = 24;
-    Chart.register(ChartDataLabels, LogarithmicScale, CategoryScale, BarController, BarElement, TimeScale, LinearScale);
+    Chart.register(
+      ChartDataLabels,
+      LogarithmicScale,
+      CategoryScale,
+      BarController,
+      BarElement,
+      TimeScale,
+      LinearScale,
+      Title
+    );
   }
 
   public static getBase64Image(datasets: BarChartEntry[], opts: BarOptions): string {
-    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1000);
+    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1200);
     const ctx = canvas.getContext('2d');
 
     const chart = new Chart(ctx, {

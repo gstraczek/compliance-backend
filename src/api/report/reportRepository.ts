@@ -70,8 +70,16 @@ export const reportRepository = {
         clientsDeals
       );
       //generate histogram images based on clients allocation and deals made
-      getDatacapInClientsChart.map((chart, idx) => {
-        reportRepository.uploadFile(`${basepath}/datacap_in_clients/`, chart, `histogram_${idx}`, 'png');
+      getDatacapInClientsChart.map(async (chart, idx) => {
+        const url = await reportRepository.uploadFile(
+          `${basepath}/datacap_in_clients/`,
+          chart,
+          `histogram_${idx}`,
+          'png'
+        );
+        content.push('');
+        content.push(`<img src="/${url}"/>`);
+        content.push('');
       });
 
       //calculate distinct sizes of allocations table
@@ -79,14 +87,28 @@ export const reportRepository = {
       content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
-      const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
-      reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
 
+      content.push('');
       content.push('## List of clients and their allocations');
       content.push('');
       content.push('| ID | Name | Number of Allocations | Total Allocations |');
       content.push('|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
+      content.push('');
+
+      if (flaggedClientsInfo.length > 0) {
+        content.push(`### Clients with ${emojify(':warning:')} flag received datacap from more than one verifier`);
+        content.push('');
+      }
+
+      if (Number(clientsData.count) > env.VERIFIER_CLIENTS_QUERY_LIMIT)
+        content.push(
+          `## ${emojify(':warning:')} There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
+        );
+
+      const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
+      const barChartUrl = await reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
+      content.push(`<img src="/${barChartUrl}"/>`);
       content.push('');
 
       content.push('## Distribution of Datacap in Storage Providers');
@@ -106,22 +128,21 @@ export const reportRepository = {
       // Generate image for provider distribution
       const providersGeoMap = reportRepository.getImageForProviderDistribution(grantedDatacapInProviders);
 
-      await reportRepository.uploadFile(basepath, providersGeoMap, 'providers_distribution_geomap', 'png');
-
-      if (flaggedClientsInfo.length > 0) {
-        content.push(`### Clients with ${emojify(':warning:')} flag received datacap from more than one verifier`);
-        content.push('');
-      }
-
-      if (Number(clientsData.count) > env.VERIFIER_CLIENTS_QUERY_LIMIT)
-        content.push(
-          `## ${emojify(':warning:')} There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
-        );
+      const geoMapUrl = await reportRepository.uploadFile(
+        basepath,
+        providersGeoMap,
+        'providers_distribution_geomap',
+        'png'
+      );
+      content.push('');
+      content.push('## Location of clients Storage Providers');
+      content.push(`<img src="/${geoMapUrl}"/>`);
     } else {
       content.push('### No Datacap issued for verifier');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
-    reportRepository.uploadFile(basepath, joinedContent, 'report', 'md');
+    await reportRepository.uploadFile(basepath, joinedContent, 'report', 'md');
+    return basepath;
   },
 
   getVerifiersData: async (apiKey: string, verifierAddress: string): Promise<GetVerifiersDataItem> => {
@@ -245,7 +266,7 @@ export const reportRepository = {
 
     const total = distributions.reduce((acc, cur) => acc + parseFloat(cur.total_deal_size), 0);
     for (const distribution of distributions) {
-      distribution.percentage = parseFloat(distribution.total_deal_size) / total;
+      distribution.percentage = (parseFloat(distribution.total_deal_size) / total) * 100;
     }
 
     const ProvidersDistribution: ProviderDistributionTable[] = [];
@@ -258,8 +279,9 @@ export const reportRepository = {
       const location = await reportRepository.getLocation(item.provider);
       const retrieval_success_rate =
         providersRetrievability.retrievability.find((x) => x.provider_id === item.provider)?.success_rate || null;
-      const total_sealed_deals =
-        (BigInt(item.total_deal_size) * BigInt(item.duplication_percentage * 100)) / BigInt(100);
+
+      // parse float???
+      const total_sealed_deals = xbytes(parseFloat(item.total_deal_size), { iec: true });
       const percentage = item.percentage;
 
       ProvidersDistribution.push({
@@ -510,9 +532,9 @@ export const reportRepository = {
 
       return GenerateChart.getBase64HistogramImage(datasets, {
         labels: LABELS,
-        title: `Deals made by clients until reached ${key} Datacap allocation`,
-        titleYText: 'Amount of deals made',
-        titleXText: `Time from Datacap issuance to ${key} Datacap allocation (hours)`,
+        title: `Time passed until used ${key} of Datacap allocation`,
+        titleYText: 'Number of Allocations',
+        titleXText: `Time from Allocation issuance (hours)`,
         width: 2000,
       });
     });
@@ -568,20 +590,24 @@ export const reportRepository = {
       titleYText: 'Size of Issuance',
       titleXText: 'Date of Issuance',
       legendOpts,
-      width: 3500,
+      width: 2000,
       labels: data.map((e) => e.x),
     });
   },
-  uploadFile: async (basepath: string, base64: string, name: string, ext: string) => {
+
+  uploadFile: async (basepath: string, base64Content: string, name: string, ext: string): Promise<string> => {
     const filePath = path.join(basepath, `${name}.${ext}`);
+
     try {
       fs.mkdirSync(basepath, { recursive: true });
-      fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+      fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
       return filePath;
     } catch (e) {
-      throw new Error('Error writing file' + e);
+      logger.error('Error uploading file %s: %s', filePath, e);
+      return '';
     }
   },
+
   generateInitialGroups: () => {
     return LABELS.map((x) => ({ x, y: 0 }));
   },
@@ -599,5 +625,8 @@ export const reportRepository = {
       }
     }
     return GeoMap.getImage(geoMapEntries);
+  },
+  constructBasepath: (uploadDir: string | undefined, addressId: string): string => {
+    return uploadDir ? `${uploadDir}/${addressId}` : addressId;
   },
 };

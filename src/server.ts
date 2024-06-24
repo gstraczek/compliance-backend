@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express, { Express } from 'express';
 import helmet from 'helmet';
+import path from 'path';
 import { pino } from 'pino';
 
 import { healthCheckRouter } from '@/api/healthCheck/healthCheckRouter';
@@ -29,6 +30,7 @@ app.use(requestLogger);
 // Routes
 app.use('/health-check', healthCheckRouter);
 app.use('/report', ReportRouter);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Swagger UI
 app.use(openAPIRouter);

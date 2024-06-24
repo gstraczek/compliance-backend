@@ -1,8 +1,12 @@
-import axios from 'axios';
+import { Octokit } from '@octokit/rest';
 
 import { logger } from '@/server';
 
 import { env } from './envConfig';
+
+const octokit = new Octokit({
+  auth: env.GITHUB_TOKEN,
+});
 
 export const githubErrorHandle = async (
   issueTittle: string,
@@ -12,19 +16,12 @@ export const githubErrorHandle = async (
   repoIssue: number
 ) => {
   try {
-    await axios.post(
-      `https://api.github.com/repos/${repoName}/${repoUsername}/issues/${repoIssue}/comments`,
-      {
-        body: `## ${issueTittle}
-
-        ${error}`,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        },
-      }
-    );
+    await octokit.issues.createComment({
+      owner: repoUsername,
+      repo: repoName,
+      issue_number: repoIssue,
+      body: `## ${issueTittle}\n\n${error}`,
+    });
   } catch (error) {
     logger.error(`Error creating issue on github: ${(error as Error).message}`);
   }

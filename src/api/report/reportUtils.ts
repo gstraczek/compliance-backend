@@ -51,8 +51,6 @@ const createContent = (
   groupsSortedByTimestamp: { addressId: string; allocations: { allocation: number; allocationTimestamp: number }[] }[]
 ) => {
   const content = [];
-  content.push('## Granted Allocation for Clients');
-  content.push('');
   content.push(
     '### The table below shows the allocations for each client. The percentage next to each allocation represents the increase or decrease compared to the previous allocation.'
   );

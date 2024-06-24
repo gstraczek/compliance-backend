@@ -23,4 +23,10 @@ export const env = cleanEnv(process.env, {
   DB_NAME: str({ devDefault: testOnly('test') }),
   IP_INFO_TOKEN: str({ devDefault: testOnly('test') }),
   RETRIEVABILITY_RANGE_DAYS: num({ devDefault: testOnly(10), default: 30 }),
+  GITHUB_OWNER: str({ devDefault: testOnly('test') }),
+  GITHUB_REPO: str({ devDefault: testOnly('test') }),
+  COMMITTER_NAME: str({ devDefault: testOnly('test') }),
+  COMMITTER_EMAIL: str({ devDefault: testOnly('test') }),
+  APP_ID: str({ devDefault: testOnly('test') }),
+  GH_PRIVATE_KEY: str({ devDefault: testOnly('test') }),
 });

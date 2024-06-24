@@ -24,7 +24,7 @@ export const reportService = {
       ]);
       const grantedDatacapInClients = reportRepository.getGrantedDatacapInClients(VerifierClients.data);
 
-      const reports = await reportRepository.generateReport(
+      await reportRepository.generateReport(
         verifiersData,
         VerifierClients,
         flaggedClientsInfo,
@@ -33,7 +33,7 @@ export const reportService = {
         grantedDatacapInProviders
       );
 
-      return new ServiceResponse<Report[]>(ResponseStatus.Success, 'Reports found', reports, StatusCodes.OK);
+      return verifiersData.addressId;
     } catch (ex) {
       const error = (ex as Error).message;
       const errorMessage = `There was an error while generating report: ${error}`;
@@ -42,9 +42,9 @@ export const reportService = {
       await githubErrorHandle(
         emojify(':warning:') + 'There was an error while generating report',
         error,
-        'gstraczek',
-        'wegiel',
-        1
+        env.GITHUB_REPO,
+        env.GITHUB_OWNER,
+        5
       );
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }

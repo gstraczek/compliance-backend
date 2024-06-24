@@ -165,7 +165,7 @@ export interface ProviderDistributionTable {
   provider: string;
   percentage: number;
   retrieval_success_rate: number | null;
-  total_sealed_deals: bigint;
+  total_sealed_deals: string;
   location: Location | null;
 }
 
