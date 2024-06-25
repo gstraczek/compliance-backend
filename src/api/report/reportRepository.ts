@@ -3,6 +3,10 @@ import { resolve4, resolve6 } from 'node:dns';
 import axios from 'axios';
 import { LegendOptions } from 'chart.js';
 import dayjs from 'dayjs';
+import duration from 'dayjs/plugin/duration';
+
+dayjs.extend(duration);
+import arraystat from 'arraystat';
 import fs from 'fs';
 import { Multiaddr } from 'multiaddr';
 import { emojify } from 'node-emoji';
@@ -39,8 +43,6 @@ import {
 } from './reportModel';
 import { reportUtils } from './reportUtils';
 
-const LABELS = ['< 1', '1 - 12', '12 - 24', '24 - 48', '> 48'];
-
 export const reportRepository = {
   generateReport: async (
     verifiersData: GetVerifiersDataItem,
@@ -59,7 +61,7 @@ export const reportRepository = {
         const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
           ? emojify(':warning:')
           : '';
-        return `| ${warning} ${e.addressId}| ${e.name} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
+        return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
       });
 
       content.push('## Distribution of Datacap in Clients');
@@ -69,6 +71,7 @@ export const reportRepository = {
         getDatacapInClientsDist,
         clientsDeals
       );
+
       //generate histogram images based on clients allocation and deals made
       getDatacapInClientsChart.map(async (chart, idx) => {
         const url = await reportRepository.uploadFile(
@@ -78,7 +81,7 @@ export const reportRepository = {
           'png'
         );
         content.push('');
-        content.push(`<img src="/${url}"/>`);
+        content.push(`<div class="histogram"><img src="/${url}"/></div>`);
         content.push('');
       });
 
@@ -87,7 +90,6 @@ export const reportRepository = {
       content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
-
       content.push('');
       content.push('## List of clients and their allocations');
       content.push('');
@@ -105,6 +107,9 @@ export const reportRepository = {
         content.push(
           `## ${emojify(':warning:')} There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
         );
+
+      content.push('## Histograms of time passed until the part of the allocation is used by the clients');
+      content.push('');
 
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
       const barChartUrl = await reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
@@ -135,7 +140,7 @@ export const reportRepository = {
         'png'
       );
       content.push('');
-      content.push('## Location of clients Storage Providers');
+      content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
       content.push(`<img src="/${geoMapUrl}"/>`);
     } else {
       content.push('### No Datacap issued for verifier');
@@ -265,9 +270,6 @@ export const reportRepository = {
     logger.debug({ distributions }, 'Got Storage provider distribution');
 
     const total = distributions.reduce((acc, cur) => acc + parseFloat(cur.total_deal_size), 0);
-    for (const distribution of distributions) {
-      distribution.percentage = (parseFloat(distribution.total_deal_size) / total) * 100;
-    }
 
     const ProvidersDistribution: ProviderDistributionTable[] = [];
     const providersRetrievability = await reportRepository.providersRetrievability(
@@ -282,7 +284,7 @@ export const reportRepository = {
 
       // parse float???
       const total_sealed_deals = xbytes(parseFloat(item.total_deal_size), { iec: true });
-      const percentage = item.percentage;
+      const percentage = (parseFloat(item.total_deal_size) / total) * 100;
 
       ProvidersDistribution.push({
         provider: item.provider,
@@ -293,7 +295,6 @@ export const reportRepository = {
       });
     }
     return ProvidersDistribution;
-    // return withLocations.sort((a, b) => a.orgName?.localeCompare(b.orgName ?? '') ?? 0);
   },
 
   providersRetrievability: async (
@@ -457,27 +458,12 @@ export const reportRepository = {
     }[],
     clientsDeals: ClientsDeals[]
   ) => {
-    const allocationDeals = {
-      first: reportRepository.generateInitialGroups(),
-      quarter: reportRepository.generateInitialGroups(),
-      half: reportRepository.generateInitialGroups(),
-      third: reportRepository.generateInitialGroups(),
-      full: reportRepository.generateInitialGroups(),
+    const allocationDeals: Record<string, number[]> = {
+      first: [],
+      half: [],
+      third: [],
+      full: [],
     };
-
-    function updateAllocationDeals(deals: { x: string; y: number }[], diff: number) {
-      if (diff < 1) {
-        deals[0].y += 1;
-      } else if (diff >= 1 && diff < 12) {
-        deals[1].y += 1;
-      } else if (diff >= 12 && diff < 24) {
-        deals[2].y += 1;
-      } else if (diff >= 24 && diff < 48) {
-        deals[3].y += 1;
-      } else {
-        deals[4].y += 1;
-      }
-    }
 
     const groupedClientDeals = clientsDeals.reduce((groups: Record<string, ClientsDeals[]>, deal) => {
       const key = deal.client_id;
@@ -498,21 +484,25 @@ export const reportRepository = {
 
           allocationUsed += deal.deal_value;
           if (threshold === 0) {
-            updateAllocationDeals(allocationDeals.first, deal?.deal_timestamp - allocationTimestamp);
+            const dealDate = dayjs.unix(deal.deal_timestamp);
+            const allocationDate = dayjs.unix(allocationTimestamp);
+            allocationDeals.first.push(dealDate.diff(allocationDate, 'days'));
             threshold = 1;
-          }
-          if (threshold === 1 && allocationUsed >= allocation * 0.25) {
-            updateAllocationDeals(allocationDeals.quarter, deal.deal_timestamp - allocationTimestamp);
+          } else if (threshold === 1 && allocationUsed >= allocation * 0.5) {
+            const dealDate = dayjs.unix(deal.deal_timestamp);
+            const allocationDate = dayjs.unix(allocationTimestamp);
+            allocationDeals.half.push(dealDate.diff(allocationDate, 'days'));
             threshold = 2;
-          } else if (threshold === 2 && allocationUsed >= allocation * 0.5) {
-            updateAllocationDeals(allocationDeals.half, deal.deal_timestamp - allocationTimestamp);
+          } else if (threshold === 2 && allocationUsed >= allocation * 0.75) {
+            const dealDate = dayjs.unix(deal.deal_timestamp);
+            const allocationDate = dayjs.unix(allocationTimestamp);
+            allocationDeals.third.push(dealDate.diff(allocationDate, 'days'));
             threshold = 3;
-          } else if (threshold === 3 && allocationUsed >= allocation * 0.75) {
-            updateAllocationDeals(allocationDeals.third, deal.deal_timestamp - allocationTimestamp);
+          } else if (threshold === 3 && allocationUsed >= allocation) {
+            const dealDate = dayjs.unix(deal.deal_timestamp);
+            const allocationDate = dayjs.unix(allocationTimestamp);
+            allocationDeals.full.push(dealDate.diff(allocationDate, 'days'));
             threshold = 4;
-          } else if (threshold === 4 && allocationUsed >= allocation) {
-            updateAllocationDeals(allocationDeals.full, deal.deal_timestamp - allocationTimestamp);
-            threshold = 5;
             dealIdx = i + 1;
             break;
           }
@@ -520,21 +510,31 @@ export const reportRepository = {
       }
     });
 
-    const charts: string[] = Object.keys(allocationDeals).map((key) => {
+    const chartData = Object.keys(allocationDeals).reduce((acc: Record<string, { x: string; y: number }[]>, key) => {
+      acc[key] = arraystat(allocationDeals[key]).histogram.map((data: { min: number; max: number; nb: number }) => {
+        return {
+          x: `${Math.floor(data.min)} - ${Math.floor(data.max)}`,
+          y: data.nb,
+        };
+      });
+      return acc;
+    }, {});
+
+    const charts: string[] = Object.keys(chartData).map((key) => {
       const datasets: BarChartEntry[] = [
         {
-          backgroundColor: LABELS.map(() => reportUtils.randomizeColor()),
-          data: allocationDeals[key as keyof typeof allocationDeals],
+          backgroundColor: chartData[key].map(() => reportUtils.randomizeColor()),
+          data: chartData[key],
           categoryPercentage: 1,
           barPercentage: 1,
         },
       ];
 
       return GenerateChart.getBase64HistogramImage(datasets, {
-        labels: LABELS,
+        labels: chartData[key].map((e) => e.x),
         title: `Time passed until used ${key} of Datacap allocation`,
         titleYText: 'Number of Allocations',
-        titleXText: `Time from Allocation issuance (hours)`,
+        titleXText: `Time from Allocation issuance (days)`,
         width: 2000,
       });
     });
@@ -580,7 +580,7 @@ export const reportRepository = {
     const datasets = [
       {
         data: data,
-        backgroundColor: data.map(() => reportUtils.randomizeColor()),
+        backgroundColor: data.map(() => '#DFFF00'),
         borderWidth: 2,
       },
     ];
@@ -608,9 +608,6 @@ export const reportRepository = {
     }
   },
 
-  generateInitialGroups: () => {
-    return LABELS.map((x) => ({ x, y: 0 }));
-  },
   getImageForProviderDistribution(providerDistributions: ProviderDistributionTable[]): string {
     const geoMapEntries: GeoMapEntry[] = [];
 
@@ -619,7 +616,7 @@ export const reportRepository = {
         geoMapEntries.push({
           longitude: distribution.location.longitude,
           latitude: distribution.location.latitude,
-          value: distribution.percentage,
+          value: Math.floor(distribution.percentage),
           label: distribution.provider,
         });
       }

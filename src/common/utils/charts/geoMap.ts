@@ -4,7 +4,6 @@ import { Chart, PointElement } from 'chart.js';
 import * as ChartGeo from 'chartjs-chart-geo';
 import {
   BubbleMapController,
-  ColorScale,
   Feature,
   GeoFeature,
   ProjectionScale,
@@ -28,7 +27,6 @@ export default class GeoMap {
   static {
     Chart.register(
       BubbleMapController,
-      ColorScale,
       ProjectionScale,
       SizeScale,
       SizeLogarithmicScale,
@@ -97,6 +95,8 @@ export default class GeoMap {
           r: {
             type: 'sizeLogarithmic',
             range: [5, 20],
+            min: 0,
+            max: 100,
           },
         },
       },

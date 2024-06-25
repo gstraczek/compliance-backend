@@ -5,7 +5,11 @@ import { ZodError, ZodSchema } from 'zod';
 import { ResponseStatus, ServiceResponse } from '@/common/models/serviceResponse';
 
 export const handleServiceResponse = (serviceResponse: ServiceResponse<any>, response: Response) => {
-  return response.status(serviceResponse.statusCode).send(serviceResponse);
+  if (serviceResponse.statusCode === StatusCodes.OK) {
+    return response.status(serviceResponse.statusCode).send(serviceResponse.responseObject);
+  } else {
+    return response.status(serviceResponse.statusCode).send(serviceResponse);
+  }
 };
 
 export const validateRequest = (schema: ZodSchema) => (req: Request, res: Response, next: NextFunction) => {

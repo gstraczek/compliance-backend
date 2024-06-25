@@ -1,4 +1,6 @@
+import { readFileSync } from 'fs';
 import { StatusCodes } from 'http-status-codes';
+import { marked } from 'marked';
 import { emojify } from 'node-emoji';
 
 import { ResponseStatus, ServiceResponse } from '@/common/models/serviceResponse';
@@ -32,8 +34,15 @@ export const reportService = {
         clientsDeals,
         grantedDatacapInProviders
       );
+      const generateReportUrl = `<a href="/report/generated/${verifiersData.addressId}">Report</a>`;
 
-      return verifiersData.addressId;
+      return new ServiceResponse(
+        ResponseStatus.Success,
+        'Report generated successfully',
+        generateReportUrl,
+        StatusCodes.OK,
+        'text/html'
+      );
     } catch (ex) {
       const error = (ex as Error).message;
       const errorMessage = `There was an error while generating report: ${error}`;
@@ -41,6 +50,85 @@ export const reportService = {
       //fixme change to allocator repo
       await githubErrorHandle(
         emojify(':warning:') + 'There was an error while generating report',
+        error,
+        env.GITHUB_REPO,
+        env.GITHUB_OWNER,
+        5
+      );
+      return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+  },
+  renderReport: async (verifierId: string): Promise<ServiceResponse<any>> => {
+    try {
+      const markdown = readFileSync(`uploads/${verifierId}/report.md`, 'utf8');
+      const html = marked(markdown);
+      const styledHtml = `
+      <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 2rem;
+      }
+      th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+      th {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        text-align: left;
+      }
+      .container {
+        max-width: 112rem;
+        margin: 5rem auto;
+        padding: 4rem;
+        border: 1px solid #eaecef;
+        position: relative;
+        width: 100%;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+      .histogram{
+        display: inline-block;
+        width: 47%;
+        box-sizing: border-box;
+        margin: 2% 0;
+      }
+      .histogram:nth-of-type(1),
+      .histogram:nth-of-type(3) {
+        margin-right: 5%;
+      }
+      h1, h2, h3 {
+        color: #333;
+      }
+    </style>
+    <div class="container">
+      ${html}
+    </div>
+  `;
+      return new ServiceResponse(
+        ResponseStatus.Success,
+        'Report rendered successfully',
+        styledHtml,
+        StatusCodes.OK,
+        'text/html'
+      );
+    } catch (ex) {
+      const error = (ex as Error).message;
+      const errorMessage = `There was an error while rendering report: ${error}`;
+      logger.error(errorMessage);
+      //fixme change to allocator repo
+      await githubErrorHandle(
+        emojify(':warning:') + 'There was an error while rendering report',
         error,
         env.GITHUB_REPO,
         env.GITHUB_OWNER,

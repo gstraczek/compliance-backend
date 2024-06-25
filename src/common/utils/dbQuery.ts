@@ -15,7 +15,7 @@ export const providerDistributionQuery = `
                           AND verified_deal = true
                           AND slash_epoch < 0
                           AND (sector_start_epoch > 0 AND sector_start_epoch < $2)
-                        --  AND end_epoch > $2
+                          AND end_epoch > $2
                         GROUP BY provider, piece_cid),
        miners AS (SELECT provider,
                          SUM(total_deal_size) AS total_deal_size,
