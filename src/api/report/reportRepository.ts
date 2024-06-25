@@ -6,7 +6,12 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
-import arraystat from 'arraystat';
+let arraystat: any;
+
+import('arraystat').then((module) => {
+  arraystat = module.default;
+});
+
 import fs from 'fs';
 import { Multiaddr } from 'multiaddr';
 import { emojify } from 'node-emoji';
@@ -549,7 +554,7 @@ export const reportRepository = {
           break;
       }
 
-      return GenerateChart.getBase64HistogramImage(datasets, {
+      return new GenerateChart().getBase64HistogramImage(datasets, {
         labels: chartData[key]?.map((e) => e.x),
         title,
         titleYText: 'Number of Allocations',
@@ -604,7 +609,7 @@ export const reportRepository = {
       },
     ];
 
-    return GenerateChart.getBase64Image(datasets, {
+    return new GenerateChart().getBase64Image(datasets, {
       title: 'Size of Datacap issuance over time',
       titleYText: 'Size of Issuance',
       titleXText: 'Date of Issuance',

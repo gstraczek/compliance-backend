@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2021",
     "module": "CommonJS",
     "baseUrl": ".",
     "paths": {
@@ -15,10 +15,9 @@
     "strict": true,
     "noPropertyAccessFromIndexSignature": false,
     "skipLibCheck": true,
-    "ignoreDeprecations": "5.0",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+    "allowSyntheticDefaultImports": true
   },
-  "extends": [],
   "exclude": ["node_modules", "src/uploads"],
-  "include": ["src/**/*.ts"]
+  "include": ["./types/**/*.d.ts", "src/**/*.ts"]
 }

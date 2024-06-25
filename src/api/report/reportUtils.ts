@@ -1,15 +1,15 @@
 import xbytes from 'xbytes';
 
-import { GrantedDatacapByVerifier } from './reportModel';
+import { GrantedDatacapInClients } from './reportModel';
 
 export const reportUtils = {
-  distinctSizesOfAllocations: (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) => {
-    const groupedByAddressId = groupByAddressId(grantedDatacapByVerifier);
+  distinctSizesOfAllocations: (grantedDatacapInClients: GrantedDatacapInClients[]) => {
+    const groupedByAddressId = groupByAddressId(grantedDatacapInClients);
     const groupsSortedByTimestamp = sortGroupsByTimestamp(groupedByAddressId);
     return createContent(groupsSortedByTimestamp);
   },
-  datacapInClients: (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) => {
-    const groupedByAddressId = groupByAddressId(grantedDatacapByVerifier);
+  datacapInClients: (grantedDatacapInClients: GrantedDatacapInClients[]) => {
+    const groupedByAddressId = groupByAddressId(grantedDatacapInClients);
     const groupsSortedByTimestamp = sortGroupsByTimestamp(groupedByAddressId);
     return groupsSortedByTimestamp;
   },
@@ -23,8 +23,8 @@ export const reportUtils = {
   },
 };
 
-const groupByAddressId = (grantedDatacapByVerifier: GrantedDatacapByVerifier[]) =>
-  grantedDatacapByVerifier.reduce(
+const groupByAddressId = (grantedDatacapInClients: GrantedDatacapInClients[]) =>
+  grantedDatacapInClients.reduce(
     (groups: Record<string, { allocation: number; allocationTimestamp: number }[]>, allocation) => {
       const key = allocation.addressId;
       if (!groups[key]) {

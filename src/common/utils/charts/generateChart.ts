@@ -1,4 +1,4 @@
-import 'chartjs-adapter-date-fns';
+import './timeScalePlugin';
 
 import { createCanvas } from 'canvas';
 import {
@@ -6,6 +6,7 @@ import {
   BarElement,
   CategoryScale,
   Chart,
+  ChartType,
   LegendOptions,
   LinearScale,
   LogarithmicScale,
@@ -16,7 +17,6 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 import xbytes from 'xbytes';
 
 import { customCanvasBackgroundColor, customNoData } from './plugins';
-
 type Color = string;
 export interface BarChartEntry {
   labels?: string;
@@ -43,8 +43,16 @@ interface BarOptions {
   labels?: string[];
 }
 
+declare module 'chart.js' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface PluginOptionsByType<TType extends ChartType> {
+    customCanvasBackgroundColor?: {
+      color: string;
+    };
+  }
+}
 export default class GenerateChart {
-  static {
+  constructor() {
     Chart.defaults.font.weight = 'bold';
     Chart.defaults.font.size = 24;
     Chart.register(
@@ -59,10 +67,11 @@ export default class GenerateChart {
     );
   }
 
-  public static getBase64Image(datasets: BarChartEntry[], opts: BarOptions): string {
-    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1200);
+  getBase64Image(datasets: BarChartEntry[], opts: BarOptions): string {
+    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1200) as any;
     const ctx = canvas.getContext('2d');
 
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -122,10 +131,11 @@ export default class GenerateChart {
     });
     return chart.toBase64Image().split(',')[1];
   }
-  public static getBase64HistogramImage(datasets: BarChartEntry[], opts: BarOptions): string {
-    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1000);
+  getBase64HistogramImage(datasets: BarChartEntry[], opts: BarOptions): string {
+    const canvas = createCanvas(opts?.width ?? 2000, opts?.height ?? 1000) as any;
     const ctx = canvas.getContext('2d');
     const labels = opts.labels;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -152,7 +162,7 @@ export default class GenerateChart {
         scales: {
           y: {
             ticks: {
-              callback: function (value) {
+              callback: function (value: any) {
                 return Number.isInteger(value) ? value : null;
               },
               font: {
