@@ -529,10 +529,25 @@ export const reportRepository = {
           barPercentage: 1,
         },
       ];
+      let title = '';
+      switch (key) {
+        case 'first':
+          title = "Time elapsed until the client's first deal was made";
+          break;
+        case 'half':
+          title = 'Time elapsed until half of the allocation was used';
+          break;
+        case 'third':
+          title = 'Time elapsed until three quarters of the allocation was used';
+          break;
+        case 'full':
+          title = 'Time elapsed until the entire allocation was used';
+          break;
+      }
 
       return GenerateChart.getBase64HistogramImage(datasets, {
         labels: chartData[key].map((e) => e.x),
-        title: `Time passed until used ${key} of Datacap allocation`,
+        title,
         titleYText: 'Number of Allocations',
         titleXText: `Time from Allocation issuance (days)`,
         width: 2000,
