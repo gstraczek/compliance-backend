@@ -15,7 +15,7 @@ import {
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import xbytes from 'xbytes';
 
-import { customCanvasBackgroundColor } from './plugins';
+import { customCanvasBackgroundColor, customNoData } from './plugins';
 
 type Color = string;
 export interface BarChartEntry {
@@ -138,6 +138,9 @@ export default class GenerateChart {
           title: {
             display: true,
             text: opts.title,
+            font: {
+              size: 50,
+            },
           },
           customCanvasBackgroundColor: {
             color: '#fff',
@@ -152,21 +155,35 @@ export default class GenerateChart {
               callback: function (value) {
                 return Number.isInteger(value) ? value : null;
               },
+              font: {
+                size: 50,
+              },
             },
             title: {
               display: true,
               text: opts.titleYText,
+              font: {
+                size: 50,
+              },
             },
           },
           x: {
+            ticks: {
+              font: {
+                size: 50,
+              },
+            },
             title: {
               display: true,
               text: opts.titleXText,
+              font: {
+                size: 50,
+              },
             },
           },
         },
       },
-      plugins: [customCanvasBackgroundColor],
+      plugins: [customCanvasBackgroundColor, customNoData],
     });
     return chart.toBase64Image().split(',')[1];
   }

@@ -511,19 +511,23 @@ export const reportRepository = {
     });
 
     const chartData = Object.keys(allocationDeals).reduce((acc: Record<string, { x: string; y: number }[]>, key) => {
-      acc[key] = arraystat(allocationDeals[key]).histogram.map((data: { min: number; max: number; nb: number }) => {
-        return {
-          x: `${Math.floor(data.min)} - ${Math.floor(data.max)}`,
-          y: data.nb,
-        };
-      });
+      if (allocationDeals[key].length === 1) {
+        acc[key] = [];
+      } else {
+        acc[key] = arraystat(allocationDeals[key]).histogram?.map((data: { min: number; max: number; nb: number }) => {
+          return {
+            x: `${Math.floor(data.min)} - ${Math.floor(data.max)}`,
+            y: data.nb,
+          };
+        });
+      }
       return acc;
     }, {});
 
     const charts: string[] = Object.keys(chartData).map((key) => {
       const datasets: BarChartEntry[] = [
         {
-          backgroundColor: chartData[key].map(() => reportUtils.randomizeColor()),
+          backgroundColor: chartData[key]?.map(() => reportUtils.randomizeColor()),
           data: chartData[key],
           categoryPercentage: 1,
           barPercentage: 1,
@@ -546,7 +550,7 @@ export const reportRepository = {
       }
 
       return GenerateChart.getBase64HistogramImage(datasets, {
-        labels: chartData[key].map((e) => e.x),
+        labels: chartData[key]?.map((e) => e.x),
         title,
         titleYText: 'Number of Allocations',
         titleXText: `Time from Allocation issuance (days)`,
@@ -601,7 +605,7 @@ export const reportRepository = {
     ];
 
     return GenerateChart.getBase64Image(datasets, {
-      title: 'Size of Datacap issuance over time by client address ID',
+      title: 'Size of Datacap issuance over time',
       titleYText: 'Size of Issuance',
       titleXText: 'Date of Issuance',
       legendOpts,
