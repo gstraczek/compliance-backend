@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { createApiResponse } from '@/api-docs/openAPIResponseBuilders';
 import { handleServiceResponse } from '@/common/utils/httpHandlers';
 
-import { GetReportSchema, ReportSchema } from './reportModel';
+import { GetReportGenSchema, GetReportSchema, ReportSchema } from './reportModel';
 import { reportService } from './reportService';
 
 export const reportRegistry = new OpenAPIRegistry();
@@ -27,7 +27,7 @@ export const ReportRouter: Router = (() => {
     method: 'get',
     path: '/report/generated/{verifierId}',
     tags: ['Report'],
-    request: { params: GetReportSchema.shape.params },
+    request: { params: GetReportGenSchema.shape.params },
     responses: createApiResponse(z.array(ReportSchema), 'Success'),
   });
 

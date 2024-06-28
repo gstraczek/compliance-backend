@@ -60,7 +60,7 @@ export const reportService = {
   },
   renderReport: async (verifierId: string): Promise<ServiceResponse<any>> => {
     try {
-      const markdown = readFileSync(`uploads/${verifierId}/report.md`, 'utf8');
+      const markdown = readFileSync(`${env.UPLOADS_DIR + verifierId}/report.md`, 'utf8');
       const html = marked(markdown);
       const styledHtml = `
       <style>

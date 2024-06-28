@@ -59,7 +59,7 @@ export const reportRepository = {
   ): Promise<any> => {
     const content: string[] = [];
     content.push('# Compliance Report');
-    const basepath = env.UPLOADS_DIR + '/' + verifiersData.addressId;
+
     if (Number(clientsData.count)) {
       const clientsRows = clientsData.data.map((e) => {
         const totalAllocations = e.allowanceArray.reduce((acc: number, curr: any) => acc + Number(curr.allowance), 0);
@@ -79,14 +79,12 @@ export const reportRepository = {
 
       //generate histogram images based on clients allocation and deals made
       getDatacapInClientsChart.map(async (chart, idx) => {
-        const url = await reportRepository.uploadFile(
-          `${basepath}/datacap_in_clients/`,
+        const filePath = await reportRepository.saveFile(
           chart,
-          `histogram_${idx}`,
-          'png'
+          `${verifiersData.addressId}/datacap_in_clients/histogram_${idx}.png`
         );
         content.push('');
-        content.push(`<div class="histogram"><img src="/${url}"/></div>`);
+        content.push(`<div class="histogram"><img src=/${filePath}></div>`);
         content.push('');
       });
 
@@ -117,7 +115,10 @@ export const reportRepository = {
       content.push('');
 
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
-      const barChartUrl = await reportRepository.uploadFile(basepath, getBarChartImage, 'issuance_chart', 'png');
+      const barChartUrl = await reportRepository.saveFile(
+        getBarChartImage,
+        `${verifiersData.addressId}/issuance_chart.png`
+      );
       content.push(`<img src="/${barChartUrl}"/>`);
       content.push('');
 
@@ -138,11 +139,9 @@ export const reportRepository = {
       // Generate image for provider distribution
       const providersGeoMap = reportRepository.getImageForProviderDistribution(grantedDatacapInProviders);
 
-      const geoMapUrl = await reportRepository.uploadFile(
-        basepath,
+      const geoMapUrl = await reportRepository.saveFile(
         providersGeoMap,
-        'providers_distribution_geomap',
-        'png'
+        `${verifiersData.addressId}/providers_distribution_geomap.png`
       );
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
@@ -151,8 +150,8 @@ export const reportRepository = {
       content.push('### No Datacap issued for verifier');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
-    await reportRepository.uploadFile(basepath, joinedContent, 'report', 'md');
-    return basepath;
+    const reportUrl = await reportRepository.saveFile(joinedContent, `${verifiersData.addressId}/report.md`);
+    return reportUrl;
   },
 
   getVerifiersData: async (apiKey: string, verifierAddress: string): Promise<GetVerifiersDataItem> => {
@@ -619,11 +618,11 @@ export const reportRepository = {
     });
   },
 
-  uploadFile: async (basepath: string, base64Content: string, name: string, ext: string): Promise<string> => {
-    const filePath = path.join(basepath, `${name}.${ext}`);
+  saveFile: async (base64Content: string, name: string): Promise<string> => {
+    const filePath = path.join(env.UPLOADS_DIR, name);
 
     try {
-      fs.mkdirSync(basepath, { recursive: true });
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
       return filePath;
     } catch (e) {
