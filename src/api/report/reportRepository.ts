@@ -624,7 +624,7 @@ export const reportRepository = {
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
-      return filePath;
+      return path.join('uploads', name);
     } catch (e) {
       logger.error('Error uploading file %s: %s', filePath, e);
       return '';
