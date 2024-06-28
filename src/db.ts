@@ -1,14 +1,7 @@
 import { Pool } from 'pg';
 
 import { env } from './common/utils/envConfig';
-
+const connectionString = `postgresql://${env.DB_USER}:${env.DB_PASSWORD}@${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}?sslmode=${env.isDev ? 'disable' : 'require'}`;
 export const db = new Pool({
-  user: env.DB_USER,
-  host: env.DB_HOST,
-  database: env.DB_NAME,
-  password: env.DB_PASSWORD,
-  port: env.DB_PORT,
-  ssl: {
-    rejectUnauthorized: env.isDev ? false : true,
-  },
+  connectionString,
 });
