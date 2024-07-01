@@ -1,12 +1,10 @@
 import { readFileSync } from 'fs';
 import { StatusCodes } from 'http-status-codes';
 import { marked } from 'marked';
-import { emojify } from 'node-emoji';
 
 import { ResponseStatus, ServiceResponse } from '@/common/models/serviceResponse';
 import { env } from '@/common/utils/envConfig';
 import { getApiKey } from '@/common/utils/getApiKey';
-import { githubErrorHandle } from '@/common/utils/githubErrorHandle';
 import { logger } from '@/server';
 
 import { reportRepository } from './reportRepository';
@@ -34,7 +32,7 @@ export const reportService = {
         clientsDeals,
         grantedDatacapInProviders
       );
-      const generateReportUrl = `<a href="/report/generated/${verifiersData.addressId}">Report</a>`;
+      const generateReportUrl = `<a rel="noopener noreferrer" href="${env.APP_BASE_URL}/report/generated/${verifiersData.addressId}">Check Full Allocator Report</a>`;
 
       return new ServiceResponse(
         ResponseStatus.Success,
@@ -47,14 +45,6 @@ export const reportService = {
       const error = (ex as Error).message;
       const errorMessage = `There was an error while generating report: ${error}`;
       logger.error(errorMessage);
-      //fixme change to allocator repo
-      await githubErrorHandle(
-        emojify(':warning:') + 'There was an error while generating report',
-        error,
-        env.GITHUB_REPO,
-        env.GITHUB_OWNER,
-        5
-      );
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   },
@@ -126,14 +116,6 @@ export const reportService = {
       const error = (ex as Error).message;
       const errorMessage = `There was an error while rendering report: ${error}`;
       logger.error(errorMessage);
-      //fixme change to allocator repo
-      await githubErrorHandle(
-        emojify(':warning:') + 'There was an error while rendering report',
-        error,
-        env.GITHUB_REPO,
-        env.GITHUB_OWNER,
-        5
-      );
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   },

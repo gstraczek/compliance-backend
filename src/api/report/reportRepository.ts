@@ -84,7 +84,7 @@ export const reportRepository = {
           `${verifiersData.addressId}/datacap_in_clients/histogram_${idx}.png`
         );
         content.push('');
-        content.push(`<div class="histogram"><img src=/${filePath}></div>`);
+        content.push(`<div class="histogram"><img src=${filePath}></div>`);
         content.push('');
       });
 
@@ -119,7 +119,7 @@ export const reportRepository = {
         getBarChartImage,
         `${verifiersData.addressId}/issuance_chart.png`
       );
-      content.push(`<img src="/${barChartUrl}"/>`);
+      content.push(`<img src="${barChartUrl}"/>`);
       content.push('');
 
       content.push('## Distribution of Datacap in Storage Providers');
@@ -145,7 +145,7 @@ export const reportRepository = {
       );
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
-      content.push(`<img src="/${geoMapUrl}"/>`);
+      content.push(`<img src="${geoMapUrl}"/>`);
     } else {
       content.push('### No Datacap issued for verifier');
     }
@@ -486,25 +486,20 @@ export const reportRepository = {
         for (let i = dealIdx; i < groupedClientDeals[client.addressId]?.length; i++) {
           const deal = clientsDeals[i];
 
+          const allocationDate = dayjs.unix(allocationTimestamp);
+          const dealDate = dayjs.unix(deal.deal_timestamp);
           allocationUsed += deal.deal_value;
+
           if (threshold === 0) {
-            const dealDate = dayjs.unix(deal.deal_timestamp);
-            const allocationDate = dayjs.unix(allocationTimestamp);
             allocationDeals.first.push(dealDate.diff(allocationDate, 'days'));
             threshold = 1;
           } else if (threshold === 1 && allocationUsed >= allocation * 0.5) {
-            const dealDate = dayjs.unix(deal.deal_timestamp);
-            const allocationDate = dayjs.unix(allocationTimestamp);
             allocationDeals.half.push(dealDate.diff(allocationDate, 'days'));
             threshold = 2;
           } else if (threshold === 2 && allocationUsed >= allocation * 0.75) {
-            const dealDate = dayjs.unix(deal.deal_timestamp);
-            const allocationDate = dayjs.unix(allocationTimestamp);
             allocationDeals.third.push(dealDate.diff(allocationDate, 'days'));
             threshold = 3;
           } else if (threshold === 3 && allocationUsed >= allocation) {
-            const dealDate = dayjs.unix(deal.deal_timestamp);
-            const allocationDate = dayjs.unix(allocationTimestamp);
             allocationDeals.full.push(dealDate.diff(allocationDate, 'days'));
             threshold = 4;
             dealIdx = i + 1;
@@ -624,10 +619,12 @@ export const reportRepository = {
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
-      return path.join('uploads', name);
+
+      const url = new URL('uploads/' + name, env.APP_BASE_URL);
+      return url.toString();
     } catch (e) {
       logger.error('Error uploading file %s: %s', filePath, e);
-      return '';
+      throw new Error('Error uploading file');
     }
   },
 

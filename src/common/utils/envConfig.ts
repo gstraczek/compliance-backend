@@ -25,4 +25,7 @@ export const env = cleanEnv(process.env, {
   COMMITTER_EMAIL: str({ devDefault: testOnly('test') }),
   APP_ID: str({ devDefault: testOnly('test') }),
   GH_PRIVATE_KEY: str({ devDefault: testOnly('test') }),
+  REPORT_TRIGGER_KEYWORD: str({ devDefault: testOnly('checker:manualTrigger') }),
+  APP_BASE_URL: str({ devDefault: testOnly('http://localhost:8080') }),
+  WEBHOOK_SECRET: str({ devDefault: testOnly('test') }),
 });
