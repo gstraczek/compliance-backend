@@ -476,6 +476,13 @@ export const reportRepository = {
       full: [],
     };
 
+    const allocationUnused: Record<string, number> = {
+      first: 0,
+      half: 0,
+      third: 0,
+      full: 0,
+    };
+
     const groupedClientDeals = clientsDeals.reduce((groups: Record<string, ClientsDeals[]>, deal) => {
       const key = deal.client_id;
       if (!groups[key]) {
@@ -515,6 +522,27 @@ export const reportRepository = {
             break;
           }
         }
+
+        switch (threshold) {
+          case 0:
+            allocationUnused.first++;
+            allocationUnused.half++;
+            allocationUnused.third++;
+            allocationUnused.full++;
+            break;
+          case 1:
+            allocationUnused.half++;
+            allocationUnused.third++;
+            allocationUnused.full++;
+            break;
+          case 2:
+            allocationUnused.third++;
+            allocationUnused.full++;
+            break;
+          case 3:
+            allocationUnused.full++;
+            break;
+        }
       }
     });
 
@@ -529,6 +557,11 @@ export const reportRepository = {
           };
         });
       }
+
+      acc[key].push({
+        x: 'Unused',
+        y: allocationUnused[key],
+      });
       return acc;
     }, {});
 
