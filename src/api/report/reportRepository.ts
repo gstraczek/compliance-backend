@@ -57,6 +57,8 @@ export const reportRepository = {
     clientsDeals: ClientsDeals[],
     grantedDatacapInProviders: ProviderDistributionTable[]
   ): Promise<any> => {
+    const reportGenDate = new Date().toISOString();
+
     const content: string[] = [];
     content.push('# Compliance Report');
 
@@ -81,7 +83,7 @@ export const reportRepository = {
       getDatacapInClientsChart.map(async (chart, idx) => {
         const filePath = await reportRepository.saveFile(
           chart,
-          `${verifiersData.addressId}/datacap_in_clients/histogram_${idx}.png`
+          `${verifiersData.addressId}/${reportGenDate}/datacap_in_clients/histogram_${idx}.png`
         );
         content.push('');
         content.push(`<div class="histogram"><img src=${filePath}></div>`);
@@ -117,7 +119,7 @@ export const reportRepository = {
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
       const barChartUrl = await reportRepository.saveFile(
         getBarChartImage,
-        `${verifiersData.addressId}/issuance_chart.png`
+        `${verifiersData.addressId}/${reportGenDate}/issuance_chart.png`
       );
       content.push(`<img src="${barChartUrl}"/>`);
       content.push('');
@@ -141,7 +143,7 @@ export const reportRepository = {
 
       const geoMapUrl = await reportRepository.saveFile(
         providersGeoMap,
-        `${verifiersData.addressId}/providers_distribution_geomap.png`
+        `${verifiersData.addressId}/${reportGenDate}/providers_distribution_geomap.png`
       );
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
@@ -150,7 +152,10 @@ export const reportRepository = {
       content.push('### No Datacap issued for verifier');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
-    const reportUrl = await reportRepository.saveFile(joinedContent, `${verifiersData.addressId}/report.md`);
+    const reportUrl = await reportRepository.saveFile(
+      joinedContent,
+      `${verifiersData.addressId}/${reportGenDate}/report.md`
+    );
     return reportUrl;
   },
 
