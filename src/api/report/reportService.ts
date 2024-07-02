@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { readFileSync } from 'fs';
 import { StatusCodes } from 'http-status-codes';
 import { marked } from 'marked';
@@ -24,15 +25,18 @@ export const reportService = {
       ]);
       const grantedDatacapInClients = reportRepository.getGrantedDatacapInClients(VerifierClients.data);
 
+      const reportGenTs = dayjs().unix();
+
       await reportRepository.generateReport(
         verifiersData,
         VerifierClients,
         flaggedClientsInfo,
         grantedDatacapInClients,
         clientsDeals,
-        grantedDatacapInProviders
+        grantedDatacapInProviders,
+        reportGenTs
       );
-      const generateReportUrl = `<a rel="noopener noreferrer" href="${env.APP_BASE_URL}/report/generated/${verifiersData.addressId}">Check Full Allocator Report</a>`;
+      const generateReportUrl = `<a rel="noopener noreferrer" href="${env.APP_BASE_URL}/report/${verifiersData.addressId}/${reportGenTs}/report.md">Check Compliance Report</a>`;
 
       return new ServiceResponse(
         ResponseStatus.Success,
@@ -48,9 +52,9 @@ export const reportService = {
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   },
-  renderReport: async (verifierId: string): Promise<ServiceResponse<any>> => {
+  renderReport: async (verifierId: string, timestamp: number): Promise<ServiceResponse<any>> => {
     try {
-      const markdown = readFileSync(`${env.UPLOADS_DIR + verifierId}/report.md`, 'utf8');
+      const markdown = readFileSync(`${env.UPLOADS_DIR + verifierId}/${timestamp}/report.md`, 'utf8');
       const html = marked(markdown);
       const styledHtml = `
       <style>

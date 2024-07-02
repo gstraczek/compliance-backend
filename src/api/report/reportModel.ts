@@ -17,7 +17,7 @@ export const GetReportSchema = z.object({
 });
 
 export const GetReportGenSchema = z.object({
-  params: z.object({ verifierId: commonValidations.verifierId }),
+  params: z.object({ verifierId: commonValidations.verifierId, timestamp: commonValidations.timestamp }),
 });
 
 export interface ClientsDeals {

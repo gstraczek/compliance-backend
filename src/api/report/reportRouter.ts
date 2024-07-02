@@ -25,14 +25,14 @@ export const ReportRouter: Router = (() => {
 
   reportRegistry.registerPath({
     method: 'get',
-    path: '/report/generated/{verifierId}',
+    path: '/report/{verifierId}/{timestamp}/report.md',
     tags: ['Report'],
     request: { params: GetReportGenSchema.shape.params },
     responses: createApiResponse(z.array(ReportSchema), 'Success'),
   });
 
-  router.get('/generated/:verifierId', async (_req: Request, res: Response) => {
-    const renderReport = await reportService.renderReport(_req.params.verifierId);
+  router.get('/:verifierId/:timestamp/report.md', async (_req: Request, res: Response) => {
+    const renderReport = await reportService.renderReport(_req.params.verifierId, Number(_req.params.timestamp));
     handleServiceResponse(renderReport, res);
   });
 

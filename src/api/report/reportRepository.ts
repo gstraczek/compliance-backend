@@ -55,12 +55,15 @@ export const reportRepository = {
     flaggedClientsInfo: FlaggedClientsInfo[],
     grantedDatacapInClients: GrantedDatacapInClients[],
     clientsDeals: ClientsDeals[],
-    grantedDatacapInProviders: ProviderDistributionTable[]
+    grantedDatacapInProviders: ProviderDistributionTable[],
+    reportGenTs: number
   ): Promise<any> => {
-    const reportGenDate = new Date().toISOString();
-
     const content: string[] = [];
     content.push('# Compliance Report');
+    content.push('### Verifiers Info');
+    content.push(`- Name: ${verifiersData.name}`);
+    content.push(`- Id: ${verifiersData.addressId}`);
+    content.push(`- Address: ${verifiersData.address}`);
 
     if (Number(clientsData.count)) {
       const clientsRows = clientsData.data.map((e) => {
@@ -70,29 +73,6 @@ export const reportRepository = {
           : '';
         return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
       });
-
-      content.push('## Distribution of Datacap in Clients');
-      content.push('');
-      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapInClients);
-      const getDatacapInClientsChart = await reportRepository.getDatacapInClientsChart(
-        getDatacapInClientsDist,
-        clientsDeals
-      );
-
-      //generate histogram images based on clients allocation and deals made
-      getDatacapInClientsChart.map(async (chart, idx) => {
-        const filePath = await reportRepository.saveFile(
-          chart,
-          `${verifiersData.addressId}/${reportGenDate}/datacap_in_clients/histogram_${idx}.png`
-        );
-        content.push('');
-        content.push(`<div class="histogram"><img src=${filePath}></div>`);
-        content.push('');
-      });
-
-      //calculate distinct sizes of allocations table
-      const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapInClients);
-      content.push(distinctSizesOfAllocations);
 
       // Generate bar chart image for clients datacap issuance
       content.push('');
@@ -113,13 +93,37 @@ export const reportRepository = {
           `## ${emojify(':warning:')} There are more than ${env.VERIFIER_CLIENTS_QUERY_LIMIT} clients for a given allocator, report may be inaccurate`
         );
 
+      content.push('## Distribution of Datacap in Clients');
+      content.push('');
+
+      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapInClients);
+      const getDatacapInClientsChart = await reportRepository.getDatacapInClientsChart(
+        getDatacapInClientsDist,
+        clientsDeals
+      );
+
+      //generate histogram images based on clients allocation and deals made
+      getDatacapInClientsChart.map(async (chart, idx) => {
+        const filePath = await reportRepository.saveFile(
+          chart,
+          `${verifiersData.addressId}/${reportGenTs}/datacap_in_clients/histogram_${idx}.png`
+        );
+        content.push('');
+        content.push(`<div class="histogram"><img src=${filePath}></div>`);
+        content.push('');
+      });
+
+      //calculate distinct sizes of allocations table
+      const distinctSizesOfAllocations = reportUtils.distinctSizesOfAllocations(grantedDatacapInClients);
+      content.push(distinctSizesOfAllocations);
+
       content.push('## Histograms of time passed until the part of the allocation is used by the clients');
       content.push('');
 
       const getBarChartImage = await reportRepository.getBarChartImage(grantedDatacapInClients);
       const barChartUrl = await reportRepository.saveFile(
         getBarChartImage,
-        `${verifiersData.addressId}/${reportGenDate}/issuance_chart.png`
+        `${verifiersData.addressId}/${reportGenTs}/issuance_chart.png`
       );
       content.push(`<img src="${barChartUrl}"/>`);
       content.push('');
@@ -143,7 +147,7 @@ export const reportRepository = {
 
       const geoMapUrl = await reportRepository.saveFile(
         providersGeoMap,
-        `${verifiersData.addressId}/${reportGenDate}/providers_distribution_geomap.png`
+        `${verifiersData.addressId}/${reportGenTs}/providers_distribution_geomap.png`
       );
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
@@ -154,7 +158,7 @@ export const reportRepository = {
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
     const reportUrl = await reportRepository.saveFile(
       joinedContent,
-      `${verifiersData.addressId}/${reportGenDate}/report.md`
+      `${verifiersData.addressId}/${reportGenTs}/report.md`
     );
     return reportUrl;
   },
@@ -568,7 +572,7 @@ export const reportRepository = {
     const charts: string[] = Object.keys(chartData).map((key) => {
       const datasets: BarChartEntry[] = [
         {
-          backgroundColor: chartData[key]?.map(() => reportUtils.randomizeColor()),
+          backgroundColor: chartData[key]?.map(() => '#a2d2ff'),
           data: chartData[key],
           categoryPercentage: 1,
           barPercentage: 1,
@@ -638,7 +642,7 @@ export const reportRepository = {
     const datasets = [
       {
         data: data,
-        backgroundColor: data.map(() => '#DFFF00'),
+        backgroundColor: data.map(() => '#d1e2d0'),
         borderWidth: 2,
       },
     ];
