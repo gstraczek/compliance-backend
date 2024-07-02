@@ -256,7 +256,9 @@ export const reportRepository = {
         allocationTimestamp: allowanceItem.createMessageTimestamp,
         clientName: item.clientName,
       }));
-    }).flat();
+    })
+      .flat()
+      .sort((a, b) => a.allocationTimestamp - b.allocationTimestamp);
 
     return allowancePerClient;
   },
@@ -483,8 +485,8 @@ export const reportRepository = {
       for (const { allocation, allocationTimestamp } of client.allocations) {
         let allocationUsed = 0n;
         let threshold = 0;
-        for (let i = dealIdx; i < groupedClientDeals[client.addressId]?.length; i++) {
-          const deal = clientsDeals[i];
+        for (; dealIdx < groupedClientDeals[client.addressId]?.length; dealIdx++) {
+          const deal = groupedClientDeals[client.addressId][dealIdx];
 
           const allocationDate = dayjs.unix(allocationTimestamp);
           const dealDate = dayjs.unix(deal.deal_timestamp);
@@ -493,16 +495,18 @@ export const reportRepository = {
           if (threshold === 0) {
             allocationDeals.first.push(dealDate.diff(allocationDate, 'days'));
             threshold = 1;
-          } else if (threshold === 1 && allocationUsed >= allocation * 0.5) {
+          }
+          if (threshold === 1 && allocationUsed >= allocation * 0.5) {
             allocationDeals.half.push(dealDate.diff(allocationDate, 'days'));
             threshold = 2;
-          } else if (threshold === 2 && allocationUsed >= allocation * 0.75) {
+          }
+          if (threshold === 2 && allocationUsed >= allocation * 0.75) {
             allocationDeals.third.push(dealDate.diff(allocationDate, 'days'));
             threshold = 3;
-          } else if (threshold === 3 && allocationUsed >= allocation) {
+          }
+          if (threshold === 3 && allocationUsed >= allocation) {
             allocationDeals.full.push(dealDate.diff(allocationDate, 'days'));
             threshold = 4;
-            dealIdx = i + 1;
             break;
           }
         }
@@ -567,14 +571,12 @@ export const reportRepository = {
         generateLabels: () => [],
       },
     };
-    const preparedTimestamp = grantedDatacapInClients
-      .map((e) => {
-        const formattedDate = dayjs(e.allocationTimestamp * 1000)
-          .startOf('day')
-          .valueOf();
-        return { ...e, allocationTimestamp: formattedDate };
-      })
-      .sort((a, b) => a.allocationTimestamp - b.allocationTimestamp);
+    const preparedTimestamp = grantedDatacapInClients.map((e) => {
+      const formattedDate = dayjs(e.allocationTimestamp * 1000)
+        .startOf('day')
+        .valueOf();
+      return { ...e, allocationTimestamp: formattedDate };
+    });
 
     const groupedByAllocationTimestamp = preparedTimestamp.reduce(
       (groups: Record<string, typeof grantedDatacapInClients>, allocation) => {

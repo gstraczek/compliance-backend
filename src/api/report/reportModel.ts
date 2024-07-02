@@ -86,7 +86,7 @@ export interface Allowance {
   verifierAddressId: string;
   isFromAutoverifier: boolean;
   searchedByProposal: boolean;
-  issueCreateTimestamp: null | string;
+  issueCreateTimestamp: number;
   hasRemainingAllowance: boolean;
   createMessageTimestamp: number;
 }
@@ -103,7 +103,7 @@ export interface ClientsByVerifier {
   allowance: string;
   verifierAddressId: string;
   createdAtHeight: number;
-  issueCreateTimestamp: null | string;
+  issueCreateTimestamp: number;
   createMessageTimestamp: number;
   verifierName: null | string;
   dealCount: number;
