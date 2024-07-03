@@ -530,22 +530,15 @@ export const reportRepository = {
         switch (threshold) {
           case 0:
             allocationUnused.first++;
-            allocationUnused.half++;
-            allocationUnused.third++;
-            allocationUnused.full++;
-            break;
+          // falls through
           case 1:
             allocationUnused.half++;
-            allocationUnused.third++;
-            allocationUnused.full++;
-            break;
+          // falls through
           case 2:
             allocationUnused.third++;
-            allocationUnused.full++;
-            break;
+          // falls through
           case 3:
             allocationUnused.full++;
-            break;
         }
       }
     });
