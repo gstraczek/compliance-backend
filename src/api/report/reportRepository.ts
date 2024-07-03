@@ -554,11 +554,11 @@ export const reportRepository = {
           };
         });
       }
-
-      acc[key].push({
-        x: 'Unused',
-        y: allocationUnused[key],
-      });
+      acc[key]?.length &&
+        acc[key].push({
+          x: 'Unused',
+          y: allocationUnused[key],
+        });
       return acc;
     }, {});
 
