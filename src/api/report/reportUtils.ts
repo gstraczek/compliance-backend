@@ -52,7 +52,7 @@ const createContent = (
 ) => {
   const content = [];
   content.push(
-    '### The table below shows the allocations for each client. The percentage next to each allocation represents the increase or decrease compared to the previous allocation.'
+    'The table below shows the allocations for each client. The percentage next to each allocation represents the increase or decrease compared to the previous allocation.'
   );
   content.push('');
   content.push('| ID | First Allocation | Second Allocation | Third Allocation | Remaining Allocations |');

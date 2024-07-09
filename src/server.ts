@@ -34,7 +34,9 @@ app.use(requestLogger);
 app.use('/health-check', healthCheckRouter);
 app.use('/report', ReportRouter);
 
-app.use('/uploads', express.static(path.join(__dirname, '../' + env.UPLOADS_DIR)));
+if (env.isDev) {
+  app.use('/uploads', express.static(path.join(__dirname, '../' + env.UPLOADS_DIR)));
+}
 
 // Swagger UI
 app.use(openAPIRouter);
