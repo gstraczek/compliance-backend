@@ -60,7 +60,7 @@ export const reportRepository = {
   ): Promise<any> => {
     const content: string[] = [];
     content.push('# Compliance Report');
-    content.push('### Verifiers Info');
+    content.push('### Allocator Info');
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
