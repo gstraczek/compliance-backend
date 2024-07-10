@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2021",
     "module": "CommonJS",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },
+    "resolveJsonModule": true,
     "moduleResolution": "Node",
     "outDir": "dist",
     "importsNotUsedAsValues": "remove",
@@ -14,10 +15,9 @@
     "strict": true,
     "noPropertyAccessFromIndexSignature": false,
     "skipLibCheck": true,
-    "ignoreDeprecations": "5.0",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+    "allowSyntheticDefaultImports": true
   },
-  "extends": [],
-  "exclude": ["node_modules"],
-  "include": ["src/**/*.ts"]
+  "exclude": ["node_modules", "src/uploads"],
+  "include": ["./types/**/*.d.ts", "src/**/*.ts"]
 }
