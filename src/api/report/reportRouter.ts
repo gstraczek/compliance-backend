@@ -18,9 +18,17 @@ export const ReportRouter: Router = (() => {
 
   reportRegistry.registerPath({
     method: 'post',
-    path: '/report/{verifierAddress}',
+    path: '/report',
     tags: ['Report'],
-    request: { params: GetReportSchema.shape.params },
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: GetReportSchema.shape.body,
+          },
+        },
+      },
+    },
     responses: createApiResponse(z.array(ReportSchema), 'Success'),
   });
   if (env.isDev) {
@@ -38,8 +46,8 @@ export const ReportRouter: Router = (() => {
     });
   }
 
-  router.post('/:verifierAddress', async (_req: Request, res: Response) => {
-    const generateReport = await reportService.generateReport(_req.params.verifierAddress);
+  router.post('/', async (_req: Request, res: Response) => {
+    const generateReport = await reportService.generateReport(_req.body.verifierAddress);
     handleServiceResponse(generateReport, res);
   });
 

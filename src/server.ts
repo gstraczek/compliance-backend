@@ -12,6 +12,7 @@ import rateLimiter from '@/common/middleware/rateLimiter';
 import requestLogger from '@/common/middleware/requestLogger';
 import { env } from '@/common/utils/envConfig';
 
+import { MainRouter } from './api/main/mainRouter';
 import { ReportRouter } from './api/report/reportRouter';
 import webhooks from './common/middleware/webhooksHandler';
 
@@ -19,6 +20,8 @@ const logger = pino({ name: 'server start' });
 
 const app = express();
 
+//parse json request body
+app.use(express.json());
 // Set the application to trust the reverse proxy
 app.set('trust proxy', true);
 
@@ -33,6 +36,7 @@ app.use(requestLogger);
 // Routes
 app.use('/health-check', healthCheckRouter);
 app.use('/report', ReportRouter);
+app.use('/', MainRouter);
 
 if (env.isDev) {
   app.use('/uploads', express.static(path.join(__dirname, '../' + env.UPLOADS_DIR)));
