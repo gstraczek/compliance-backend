@@ -11,9 +11,10 @@ export const ReportSchema = z.object({
   verifierAddress: z.string(),
 });
 
-// Input Validation for 'GET report' endpoint
 export const GetReportSchema = z.object({
-  params: z.object({ verifierAddress: commonValidations.verifierAddress }),
+  body: z.object({
+    verifierAddress: commonValidations.verifierAddress,
+  }),
 });
 
 export const GetReportGenSchema = z.object({
