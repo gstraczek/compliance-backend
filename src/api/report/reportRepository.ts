@@ -58,12 +58,17 @@ export const reportRepository = {
     grantedDatacapInProviders: ProviderDistributionTable[],
     reportGenTs: number
   ): Promise<any> => {
-    const content: string[] = [];
+    let content: string[] = [];
+    const datacapInClientsDist = reportUtils.datacapInClients(grantedDatacapInClients);
+    const { datacapInClientsCharts, timeToFirstDeal } = await reportRepository.getDatacapInClientsChart(
+      datacapInClientsDist,
+      clientsDeals
+    );
+
     content.push('# Compliance Report');
-    content.push('### Verifiers Info');
-    content.push(`- Name: ${verifiersData.name}`);
-    content.push(`- Id: ${verifiersData.addressId}`);
-    content.push(`- Address: ${verifiersData.address}`);
+    content.push('## Verifiers Info');
+    const header = reportRepository.reportHeaderContent(verifiersData, grantedDatacapInProviders, timeToFirstDeal);
+    content = [...content, ...header];
 
     if (Number(clientsData.count)) {
       const clientsRows = clientsData.data.map((e) => {
@@ -96,14 +101,8 @@ export const reportRepository = {
       content.push('## Distribution of Datacap in Clients');
       content.push('');
 
-      const getDatacapInClientsDist = reportUtils.datacapInClients(grantedDatacapInClients);
-      const getDatacapInClientsChart = await reportRepository.getDatacapInClientsChart(
-        getDatacapInClientsDist,
-        clientsDeals
-      );
-
       //generate histogram images based on clients allocation and deals made
-      getDatacapInClientsChart.map(async (chart, idx) => {
+      datacapInClientsCharts.map(async (chart, idx) => {
         const filePath = await reportRepository.saveFile(
           chart,
           `${verifiersData.addressId}/${reportGenTs}/datacap_in_clients/histogram_${idx}.png`
@@ -138,7 +137,7 @@ export const reportRepository = {
         content.push(
           `| ${provider.provider} | ${provider.location?.city || '-'} | ${provider.total_sealed_deals.toString()} | ${provider.percentage.toFixed(
             2
-          )} % | ${provider.retrieval_success_rate || '-'} |`
+          )} % | ${((provider.retrieval_success_rate ?? 0) * 100).toFixed(2) + '%' || '-'} |`
         );
       });
 
@@ -473,7 +472,7 @@ export const reportRepository = {
     }[],
     clientsDeals: ClientsDeals[]
   ) => {
-    const allocationDeals: Record<string, number[]> = {
+    const timeToReachThreshold: Record<string, number[]> = {
       first: [],
       half: [],
       third: [],
@@ -509,19 +508,19 @@ export const reportRepository = {
           allocationUsed += deal.deal_value;
 
           if (threshold === 0) {
-            allocationDeals.first.push(dealDate.diff(allocationDate, 'days'));
+            timeToReachThreshold.first.push(dealDate.diff(allocationDate, 'days'));
             threshold = 1;
           }
           if (threshold === 1 && allocationUsed >= allocation * 0.5) {
-            allocationDeals.half.push(dealDate.diff(allocationDate, 'days'));
+            timeToReachThreshold.half.push(dealDate.diff(allocationDate, 'days'));
             threshold = 2;
           }
           if (threshold === 2 && allocationUsed >= allocation * 0.75) {
-            allocationDeals.third.push(dealDate.diff(allocationDate, 'days'));
+            timeToReachThreshold.third.push(dealDate.diff(allocationDate, 'days'));
             threshold = 3;
           }
           if (threshold === 3 && allocationUsed >= allocation) {
-            allocationDeals.full.push(dealDate.diff(allocationDate, 'days'));
+            timeToReachThreshold.full.push(dealDate.diff(allocationDate, 'days'));
             threshold = 4;
             break;
           }
@@ -543,26 +542,31 @@ export const reportRepository = {
       }
     });
 
-    const chartData = Object.keys(allocationDeals).reduce((acc: Record<string, { x: string; y: number }[]>, key) => {
-      if (allocationDeals[key].length === 1) {
-        acc[key] = [];
-      } else {
-        acc[key] = arraystat(allocationDeals[key]).histogram?.map((data: { min: number; max: number; nb: number }) => {
-          return {
-            x: `${Math.floor(data.min)} - ${Math.floor(data.max)}`,
-            y: data.nb,
-          };
-        });
-      }
-      acc[key]?.length &&
-        acc[key].push({
-          x: 'Unused',
-          y: allocationUnused[key],
-        });
-      return acc;
-    }, {});
+    const chartData = Object.keys(timeToReachThreshold).reduce(
+      (acc: Record<string, { x: string; y: number }[]>, key) => {
+        if (timeToReachThreshold[key].length === 1) {
+          acc[key] = [];
+        } else {
+          acc[key] = arraystat(timeToReachThreshold[key]).histogram?.map(
+            (data: { min: number; max: number; nb: number }) => {
+              return {
+                x: `${Math.floor(data.min)} - ${Math.floor(data.max)}`,
+                y: data.nb,
+              };
+            }
+          );
+        }
+        acc[key]?.length &&
+          acc[key].push({
+            x: 'Unused',
+            y: allocationUnused[key],
+          });
+        return acc;
+      },
+      {}
+    );
 
-    const charts: string[] = Object.keys(chartData).map((key) => {
+    const datacapInClientsCharts: string[] = Object.keys(chartData).map((key) => {
       const datasets: BarChartEntry[] = [
         {
           backgroundColor: chartData[key]?.map(() => '#a2d2ff'),
@@ -596,7 +600,7 @@ export const reportRepository = {
       });
     });
 
-    return charts;
+    return { datacapInClientsCharts, timeToFirstDeal: timeToReachThreshold.first };
   },
 
   getBarChartImage: async (grantedDatacapInClients: GrantedDatacapInClients[]) => {
@@ -682,5 +686,31 @@ export const reportRepository = {
   },
   constructBasepath: (uploadDir: string | undefined, addressId: string): string => {
     return uploadDir ? `${uploadDir}/${addressId}` : addressId;
+  },
+  reportHeaderContent: (
+    verifiersData: GetVerifiersDataItem,
+    grantedDatacapInProviders: ProviderDistributionTable[],
+    timeToFirstDeal: number[]
+  ): string[] => {
+    const averageRetrievalScore = arraystat(grantedDatacapInProviders.map((x) => x.retrieval_success_rate)).avg;
+
+    const averageRetrievalScorePct = averageRetrievalScore !== 0 ? (averageRetrievalScore * 100).toFixed(2) + '%' : '-';
+
+    const averageTimeToFirstDeal = arraystat(timeToFirstDeal).avg;
+
+    const content = [];
+    content.push(`- Name: ${verifiersData.name}`);
+    content.push(`- Id: ${verifiersData.addressId}`);
+    content.push(`- Address: ${verifiersData.address}`);
+    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
+    //TODO: get from filplus backend
+    // content.push(`- Application URL: `)
+    // content.push(`- Application Issue: `);
+    content.push(`- Is Multisig: ${verifiersData.isMultisig}`);
+    content.push(`- Average retrievability success rate: ${averageRetrievalScorePct}`);
+    content.push(
+      `- Average time to first deal: ${averageTimeToFirstDeal ? averageTimeToFirstDeal.toFixed(2) + ' days' : '-'}`
+    );
+    return content;
   },
 };
