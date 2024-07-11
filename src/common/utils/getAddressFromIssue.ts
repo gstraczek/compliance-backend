@@ -6,7 +6,7 @@ export function getAddressFromIssue(issueContent: string) {
 }
 
 export function getAddressFromComment(commentBody: string, keyword: string) {
-  const addressRegex = new RegExp(`^${keyword} (f[1-4][a-z0-9]+)$`, 'i');
+  const addressRegex = new RegExp(`^${keyword} ([ft][1-4][a-z0-9]+)$`, 'i');
   const match = commentBody.match(addressRegex);
   return match ? match[1] : null;
 }
