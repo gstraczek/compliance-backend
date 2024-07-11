@@ -128,15 +128,6 @@ export interface GetVerifiedClientsResponse {
   data: ClientsByVerifierData;
 }
 
-export interface getVerifierClientsData {
-  count: string;
-  data: ClientsByVerifier[];
-  ldnActivityCount: number;
-  name: null | string;
-  remainingDatacap: string;
-  addressId: string;
-}
-
 export interface getVerifierClientsDataResponse extends AxiosResponse {
   data: ClientsByVerifierData;
 }

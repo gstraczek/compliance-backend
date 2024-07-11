@@ -76,15 +76,17 @@ export const reportRepository = {
         const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
           ? emojify(':warning:')
           : '';
-        return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
+        const linkToInteractions = `https://filecoinpulse.pages.dev/client/${e.addressId}/#client-interactions-with-storage-providers`;
+
+        return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations)} | ${linkToInteractions}`;
       });
 
       // Generate bar chart image for clients datacap issuance
       content.push('');
       content.push('## List of clients and their allocations');
       content.push('');
-      content.push('| ID | Name | Number of Allocations | Total Allocations |');
-      content.push('|-|-|-|-|');
+      content.push("| ID | Name | Number of Allocations | Total Allocations | Link To Interactions With SP's |");
+      content.push('|-|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
       content.push('');
 
@@ -151,6 +153,15 @@ export const reportRepository = {
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
       content.push(`<img src="${geoMapUrl}"/>`);
+      content.push('');
+
+      content.push('## Detailed Allocations per Client');
+      content.push('');
+      const detailedAllocationsPerClient = reportRepository.detailedAllocationsPerClient(clientsData.data);
+      detailedAllocationsPerClient.forEach((client) => {
+        client.forEach((row) => content.push(row));
+        content.push('');
+      });
     } else {
       content.push('### No Datacap issued for verifier');
     }
@@ -712,5 +723,32 @@ export const reportRepository = {
       `- Average time to first deal: ${averageTimeToFirstDeal ? averageTimeToFirstDeal.toFixed(2) + ' days' : '-'}`
     );
     return content;
+  },
+  detailedAllocationsPerClient: (clientsData: ClientsByVerifier[]): string[][] => {
+    const data = clientsData.map((client) => {
+      const content = [];
+      content.push(
+        `| ID | Name | Allocation Amount | Duration Between Previous Allocation Request (days) | Time from Allocation request to On-chain Approval (hours) |`
+      );
+      content.push('|-|-|-|-|-|');
+      client.allowanceArray.forEach((allocation, idx) => {
+        const allocationDate = dayjs.unix(allocation.createMessageTimestamp);
+        let durationBetweenAllocationRequest = '-';
+        if (idx !== 0) {
+          const previousAllocationDate = dayjs.unix(client.allowanceArray[idx - 1].createMessageTimestamp);
+          durationBetweenAllocationRequest = previousAllocationDate.diff(allocationDate, 'days').toString();
+        }
+        const issueCreateDate = dayjs.unix(allocation.issueCreateTimestamp);
+        const timeFromAllocationToApproval = allocationDate.diff(issueCreateDate, 'hours').toString();
+
+        content.push(
+          `| ${client.addressId} | ${client.name || '-'} | ${allocation.allowance} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
+        );
+      });
+
+      return content;
+    });
+
+    return data;
   },
 };
