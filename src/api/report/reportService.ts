@@ -36,14 +36,15 @@ export const reportService = {
         grantedDatacapInProviders,
         reportGenTs
       );
-      const generateReportUrl = `<a rel="noopener noreferrer" href="${env.APP_BASE_URL}/report/${verifiersData.addressId}/${reportGenTs}/report.md">Check Compliance Report</a>`;
+      const generateReportRes = {
+        generatedReportUrl: `${env.APP_BASE_URL}/report/${verifiersData.addressId}/${reportGenTs}/report.md`,
+      };
 
       return new ServiceResponse(
         ResponseStatus.Success,
         'Report generated successfully',
-        generateReportUrl,
-        StatusCodes.OK,
-        'text/html'
+        generateReportRes,
+        StatusCodes.OK
       );
     } catch (ex) {
       const error = (ex as Error).message;
