@@ -20,8 +20,6 @@ const logger = pino({ name: 'server start' });
 
 const app = express();
 
-//parse json request body
-app.use(express.json());
 // Set the application to trust the reverse proxy
 app.set('trust proxy', true);
 
@@ -32,6 +30,12 @@ app.use(rateLimiter);
 
 // Request logging
 app.use(requestLogger);
+
+// we need to process webhooks before body parser mangles the data
+app.use('/api/github/webhooks', createNodeMiddleware(webhooks, { path: '/' }));
+
+//parse json request body
+app.use(express.json());
 
 // Routes
 app.use('/health-check', healthCheckRouter);
@@ -44,8 +48,6 @@ if (env.isDev) {
 
 // Swagger UI
 app.use(openAPIRouter);
-
-app.use('/api/github/webhooks', createNodeMiddleware(webhooks, { path: '/' }));
 
 // Error handlers
 app.use(errorHandler());
