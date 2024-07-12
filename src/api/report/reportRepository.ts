@@ -702,7 +702,7 @@ export const reportRepository = {
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
-    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
+    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocator/${verifiersData.addressId}/`);
     //TODO: get from filplus backend
     // content.push(`- Application URL: `)
     // content.push(`- Application Issue: `);
