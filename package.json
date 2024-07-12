@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.0.0",
+    "@octokit/auth-app": "^7.1.0",
     "@octokit/rest": "^21.0.0",
     "@octokit/webhooks": "^12.2.0",
     "@types/topojson-specification": "^1.0.5",

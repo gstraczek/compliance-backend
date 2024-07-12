@@ -33,7 +33,8 @@ webhooks.on(['issue_comment.created', 'issue_comment.edited'], async (context) =
         return;
       }
 
-      await createComment(owner, repo, issue_number, report.responseObject);
+      const link = report.responseObject.generatedReportUrl;
+      await createComment(owner, repo, issue_number, `Report generated: ${link}`);
     } else {
       await createComment(
         owner,
@@ -43,6 +44,7 @@ webhooks.on(['issue_comment.created', 'issue_comment.edited'], async (context) =
       );
     }
   } catch (error) {
+    console.error(error);
     logger.error(`Error in webhooks: ${(error as Error).message}`);
   }
 });
