@@ -66,7 +66,7 @@ export const reportRepository = {
     );
 
     content.push('# Compliance Report');
-    content.push('## Allocator\'s Info');
+    content.push("## Allocator's Info");
     const header = reportRepository.reportHeaderContent(verifiersData, grantedDatacapInProviders, timeToFirstDeal);
     content = [...content, ...header];
 
