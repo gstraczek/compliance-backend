@@ -23,4 +23,5 @@ export const env = cleanEnv(process.env, {
   REPORT_TRIGGER_KEYWORD: str({ devDefault: testOnly('checker:manualTrigger') }),
   APP_BASE_URL: str({ devDefault: testOnly('http://localhost:8080') }),
   WEBHOOK_SECRET: str({ devDefault: testOnly('test') }),
+  ALLOCATOR_BASE_REPORT_URL: str({ default: 'https://check.allocator.tech/report' }),
 });

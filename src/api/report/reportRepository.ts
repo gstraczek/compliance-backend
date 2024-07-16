@@ -21,7 +21,7 @@ import xbytes from 'xbytes';
 import { axiosConfig } from '@/common/utils/axiosConfig';
 import GenerateChart, { BarChartEntry } from '@/common/utils/charts/generateChart';
 import GeoMap from '@/common/utils/charts/geoMap';
-import { clientDealsQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
+import { clientDealsQuery, generatedReportQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
 import { env } from '@/common/utils/envConfig';
 import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
 import { isNotEmpty } from '@/common/utils/typeGuards';
@@ -46,7 +46,7 @@ import {
   Retrievability,
   SparkSuccessRate,
 } from './reportModel';
-import { reportUtils } from './reportUtils';
+import { generateClientsRow, reportUtils } from './reportUtils';
 
 export const reportRepository = {
   generateReport: async (
@@ -67,26 +67,24 @@ export const reportRepository = {
 
     content.push('# Compliance Report');
     content.push('## Verifiers Info');
-    const header = reportRepository.reportHeaderContent(verifiersData, grantedDatacapInProviders, timeToFirstDeal);
+    const header = reportRepository.reportHeaderContent(
+      verifiersData,
+      grantedDatacapInProviders,
+      timeToFirstDeal,
+      Number(datacapInClientsDist.length)
+    );
     content = [...content, ...header];
 
     if (Number(clientsData.count)) {
-      const clientsRows = clientsData.data.map((e) => {
-        const totalAllocations = e.allowanceArray.reduce((acc: number, curr: any) => acc + Number(curr.allowance), 0);
-        const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
-          ? emojify(':warning:')
-          : '';
-        const linkToInteractions = `https://filecoinpulse.pages.dev/client/${e.addressId}/#client-interactions-with-storage-providers`;
-
-        return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations)} | ${linkToInteractions}`;
-      });
-
+      const clientsRows = await Promise.all(
+        clientsData.data.map((e) => generateClientsRow(e, flaggedClientsInfo, reportRepository))
+      );
       // Generate bar chart image for clients datacap issuance
       content.push('');
       content.push('## List of clients and their allocations');
       content.push('');
-      content.push("| ID | Name | Number of Allocations | Total Allocations | Link To Interactions With SP's |");
-      content.push('|-|-|-|-|-|');
+      content.push("| ID | Name | Number of Allocations | Total Allocations | Interactions With SP's | CID Report |");
+      content.push('|-|-|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
       content.push('');
 
@@ -157,13 +155,13 @@ export const reportRepository = {
 
       content.push('## Detailed Allocations per Client');
       content.push('');
-      const detailedAllocationsPerClient = reportRepository.detailedAllocationsPerClient(clientsData.data);
+      const detailedAllocationsPerClient = await reportRepository.detailedAllocationsPerClient(clientsData.data);
       detailedAllocationsPerClient.forEach((client) => {
         client.forEach((row) => content.push(row));
         content.push('');
       });
     } else {
-      content.push('### No Datacap issued for verifier');
+      content.push('### No Datacap issued for allocator');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
     const reportUrl = await reportRepository.saveFile(
@@ -701,7 +699,8 @@ export const reportRepository = {
   reportHeaderContent: (
     verifiersData: GetVerifiersDataItem,
     grantedDatacapInProviders: ProviderDistributionTable[],
-    timeToFirstDeal: number[]
+    timeToFirstDeal: number[],
+    numberOfClients: number
   ): string[] => {
     const averageRetrievalScore = arraystat(grantedDatacapInProviders.map((x) => x.retrieval_success_rate)).avg;
 
@@ -714,9 +713,7 @@ export const reportRepository = {
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
     content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
-    //TODO: get from filplus backend
-    // content.push(`- Application URL: `)
-    // content.push(`- Application Issue: `);
+    content.push(`- Number of clients: ${numberOfClients}`);
     content.push(`- Is Multisig: ${verifiersData.isMultisig}`);
     content.push(`- Average retrievability success rate: ${averageRetrievalScorePct}`);
     content.push(
@@ -750,5 +747,18 @@ export const reportRepository = {
     });
 
     return data;
+  },
+  getClientCidReportUrl: async (address: string): Promise<string> => {
+    try {
+      const report = await db.query(generatedReportQuery, [address]);
+      if (report.rows.length === 0) {
+        return '-';
+      }
+
+      const url = `[CID Report](${env.ALLOCATOR_BASE_REPORT_URL}/${report.rows[0].file_path})`;
+      return url;
+    } catch (error) {
+      throw new Error('Error getting clients CID report data from the DB: ' + error);
+    }
   },
 };
