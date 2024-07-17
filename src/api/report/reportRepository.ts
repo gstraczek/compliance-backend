@@ -706,7 +706,7 @@ export const reportRepository = {
     const averageRetrievalScore = arraystat(grantedDatacapInProviders.map((x) => x.retrieval_success_rate)).avg;
     const averageRetrievalScorePct = averageRetrievalScore !== 0 ? (averageRetrievalScore * 100).toFixed(2) + '%' : '-';
     const averageTimeToFirstDeal = arraystat(timeToFirstDeal).avg;
-    const allocatorData = await reportRepository.getAllocatorsData();
+    const allocatorInfo = await reportRepository.getAllocatorInfo(verifiersData.address);
     const content = [];
 
     content.push(`- Name: ${verifiersData.name}`);
@@ -719,8 +719,8 @@ export const reportRepository = {
     content.push(
       `- Average time to first deal: ${averageTimeToFirstDeal ? averageTimeToFirstDeal.toFixed(2) + ' days' : '-'}`
     );
-    content.push(`- Data Types: ${allocatorData?.data_types?.join(', ') || '-'}`);
-    content.push(`- Required Copies: ${allocatorData?.required_replicas || '-'}`);
+    content.push(`- Data Types: ${allocatorInfo?.data_types?.join(', ') || '-'}`);
+    content.push(`- Required Copies: ${allocatorInfo?.required_replicas || '-'}`);
     return content;
   },
   detailedAllocationsPerClient: (clientsData: ClientsByVerifier[]): string[][] => {
@@ -763,12 +763,16 @@ export const reportRepository = {
       throw new Error('Error getting clients CID report data from the DB: ' + error);
     }
   },
-  getAllocatorsData: async (): Promise<Allocator | undefined> => {
+  getAllocatorsData: async (): Promise<Allocator[] | undefined> => {
     try {
       const response = await axios.get(`${env.FILPLUS_BACKEND_API_URL}/allocators`);
       return response.data;
     } catch (error) {
       logger.error(`Error getting allocator tech data from ${env.FILPLUS_BACKEND_API_URL} API: ${error}`);
     }
+  },
+  getAllocatorInfo: async (address: string): Promise<Allocator | undefined> => {
+    const data = await reportRepository.getAllocatorsData();
+    return data?.find((x) => x.address === address);
   },
 };
