@@ -513,9 +513,9 @@ export const reportRepository = {
           const allocationDate = dayjs.unix(allocationTimestamp);
           const dealDate = dayjs.unix(deal.deal_timestamp);
           allocationUsed += deal.deal_value;
+          const diff = dealDate.diff(allocationDate, 'days');
 
           if (threshold === 0) {
-            const diff = dealDate.diff(allocationDate, 'days');
             if (diff < 0) {
               unknownAllocations.first++;
             } else {
@@ -524,7 +524,6 @@ export const reportRepository = {
             threshold = 1;
           }
           if (threshold === 1 && allocationUsed >= allocation * 0.5) {
-            const diff = dealDate.diff(allocationDate, 'days');
             if (diff < 0) {
               unknownAllocations.half++;
             } else {
@@ -533,7 +532,6 @@ export const reportRepository = {
             threshold = 2;
           }
           if (threshold === 2 && allocationUsed >= allocation * 0.75) {
-            const diff = dealDate.diff(allocationDate, 'days');
             if (diff < 0) {
               unknownAllocations.third++;
             } else {
@@ -542,11 +540,10 @@ export const reportRepository = {
             threshold = 3;
           }
           if (threshold === 3 && allocationUsed >= allocation) {
-            const diff = dealDate.diff(allocationDate, 'days');
             if (diff < 0) {
               unknownAllocations.full++;
             } else {
-              timeToReachThreshold.full.push(dealDate.diff(diff));
+              timeToReachThreshold.full.push(diff);
             }
             threshold = 4;
             break;
