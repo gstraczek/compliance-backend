@@ -29,6 +29,7 @@ import { db } from '@/db';
 import { logger } from '@/server';
 
 import {
+  Allocator,
   ClientsByVerifier,
   ClientsByVerifierData,
   ClientsDeals,
@@ -67,7 +68,7 @@ export const reportRepository = {
 
     content.push('# Compliance Report');
     content.push('## Verifiers Info');
-    const header = reportRepository.reportHeaderContent(
+    const header = await reportRepository.reportHeaderContent(
       verifiersData,
       grantedDatacapInProviders,
       timeToFirstDeal,
@@ -696,19 +697,18 @@ export const reportRepository = {
   constructBasepath: (uploadDir: string | undefined, addressId: string): string => {
     return uploadDir ? `${uploadDir}/${addressId}` : addressId;
   },
-  reportHeaderContent: (
+  reportHeaderContent: async (
     verifiersData: GetVerifiersDataItem,
     grantedDatacapInProviders: ProviderDistributionTable[],
     timeToFirstDeal: number[],
     numberOfClients: number
-  ): string[] => {
+  ): Promise<string[]> => {
     const averageRetrievalScore = arraystat(grantedDatacapInProviders.map((x) => x.retrieval_success_rate)).avg;
-
     const averageRetrievalScorePct = averageRetrievalScore !== 0 ? (averageRetrievalScore * 100).toFixed(2) + '%' : '-';
-
     const averageTimeToFirstDeal = arraystat(timeToFirstDeal).avg;
-
+    const allocatorData = await reportRepository.getAllocatorsData();
     const content = [];
+
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
@@ -719,6 +719,8 @@ export const reportRepository = {
     content.push(
       `- Average time to first deal: ${averageTimeToFirstDeal ? averageTimeToFirstDeal.toFixed(2) + ' days' : '-'}`
     );
+    content.push(`- Data Types: ${allocatorData?.data_types?.join(', ') || '-'}`);
+    content.push(`- Required Copies: ${allocatorData?.required_replicas || '-'}`);
     return content;
   },
   detailedAllocationsPerClient: (clientsData: ClientsByVerifier[]): string[][] => {
@@ -759,6 +761,14 @@ export const reportRepository = {
       return url;
     } catch (error) {
       throw new Error('Error getting clients CID report data from the DB: ' + error);
+    }
+  },
+  getAllocatorsData: async (): Promise<Allocator | undefined> => {
+    try {
+      const response = await axios.get(`${env.FILPLUS_BACKEND_API_URL}/allocators`);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error getting allocator tech data from ${env.FILPLUS_BACKEND_API_URL} API: ${error}`);
     }
   },
 };

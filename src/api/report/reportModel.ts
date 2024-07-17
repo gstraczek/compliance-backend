@@ -188,3 +188,19 @@ export interface GeoMapEntry {
   latitude: number;
   longitude: number;
 }
+export interface Allocator {
+  id: number;
+  owner: string;
+  repo: string;
+  installation_id?: number;
+  multisig_address?: string;
+  verifiers_gh_handles?: string;
+  multisig_threshold?: number;
+  allocation_amount_type?: string;
+  address?: string;
+  tooling?: string;
+  data_types?: string[];
+  required_sps?: string;
+  required_replicas?: string;
+  registry_file_path?: string;
+}

@@ -24,4 +24,5 @@ export const env = cleanEnv(process.env, {
   APP_BASE_URL: str({ devDefault: testOnly('http://localhost:8080') }),
   WEBHOOK_SECRET: str({ devDefault: testOnly('test') }),
   ALLOCATOR_BASE_REPORT_URL: str({ default: 'https://check.allocator.tech/report' }),
+  FILPLUS_BACKEND_API_URL: str(),
 });
