@@ -1,18 +1,29 @@
 import { env } from './envConfig';
 
-let octokit: any;
-
-const initializeOctokit = async () => {
+const initializeOctokit = async (owner: string, repo: string) => {
   const { Octokit } = await import('@octokit/rest');
-  octokit = new Octokit({
-    auth: env.GITHUB_TOKEN,
+  const { createAppAuth } = await import('@octokit/auth-app');
+
+  const octokit = new Octokit({
+    authStrategy: createAppAuth,
+    auth: {
+      appId: env.APP_ID,
+      privateKey: env.GH_PRIVATE_KEY,
+    },
+  });
+  const { data: installation } = await octokit.apps.getRepoInstallation({ owner, repo });
+  return new Octokit({
+    authStrategy: createAppAuth,
+    auth: {
+      appId: env.APP_ID,
+      privateKey: env.GH_PRIVATE_KEY,
+      installationId: installation.id,
+    },
   });
 };
 
 const createComment = async (owner: string, repo: string, issue_number: number, body: string) => {
-  if (!octokit) {
-    await initializeOctokit();
-  }
+  const octokit = await initializeOctokit(owner, repo);
   await octokit.issues.createComment({
     owner,
     repo,

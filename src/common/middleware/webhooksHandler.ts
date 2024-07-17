@@ -21,13 +21,20 @@ webhooks.on(['issue_comment.created', 'issue_comment.edited'], async (context) =
     const issue_number = context.payload.issue.number;
     const allocatorAddress = getAddressFromComment(commentBody, env.REPORT_TRIGGER_KEYWORD);
     if (allocatorAddress) {
+      await createComment(
+        owner,
+        repo,
+        issue_number,
+        "Received request to generate a report. Please wait a few minutes while it's being generated."
+      );
       const report = await reportService.generateReport(allocatorAddress);
       if (!report.success) {
         await createComment(owner, repo, issue_number, `## Error\n\n${report.message}`);
         return;
       }
 
-      await createComment(owner, repo, issue_number, report.responseObject);
+      const link = report.responseObject.generatedReportUrl;
+      await createComment(owner, repo, issue_number, `Report generated: ${link}`);
     } else {
       await createComment(
         owner,
@@ -37,6 +44,7 @@ webhooks.on(['issue_comment.created', 'issue_comment.edited'], async (context) =
       );
     }
   } catch (error) {
+    console.error(error);
     logger.error(`Error in webhooks: ${(error as Error).message}`);
   }
 });
