@@ -486,6 +486,13 @@ export const reportRepository = {
       full: 0,
     };
 
+    const unknownAllocations: Record<string, number> = {
+      first: 0,
+      half: 0,
+      third: 0,
+      full: 0,
+    };
+
     const groupedClientDeals = clientsDeals.reduce((groups: Record<string, ClientsDeals[]>, deal) => {
       const key = deal.client_id;
       if (!groups[key]) {
@@ -508,19 +515,39 @@ export const reportRepository = {
           allocationUsed += deal.deal_value;
 
           if (threshold === 0) {
-            timeToReachThreshold.first.push(dealDate.diff(allocationDate, 'days'));
+            const diff = dealDate.diff(allocationDate, 'days');
+            if (diff < 0) {
+              unknownAllocations.first++;
+            } else {
+              timeToReachThreshold.first.push(diff);
+            }
             threshold = 1;
           }
           if (threshold === 1 && allocationUsed >= allocation * 0.5) {
-            timeToReachThreshold.half.push(dealDate.diff(allocationDate, 'days'));
+            const diff = dealDate.diff(allocationDate, 'days');
+            if (diff < 0) {
+              unknownAllocations.half++;
+            } else {
+              timeToReachThreshold.half.push(diff);
+            }
             threshold = 2;
           }
           if (threshold === 2 && allocationUsed >= allocation * 0.75) {
-            timeToReachThreshold.third.push(dealDate.diff(allocationDate, 'days'));
+            const diff = dealDate.diff(allocationDate, 'days');
+            if (diff < 0) {
+              unknownAllocations.third++;
+            } else {
+              timeToReachThreshold.third.push(diff);
+            }
             threshold = 3;
           }
           if (threshold === 3 && allocationUsed >= allocation) {
-            timeToReachThreshold.full.push(dealDate.diff(allocationDate, 'days'));
+            const diff = dealDate.diff(allocationDate, 'days');
+            if (diff < 0) {
+              unknownAllocations.full++;
+            } else {
+              timeToReachThreshold.full.push(dealDate.diff(diff));
+            }
             threshold = 4;
             break;
           }
@@ -556,6 +583,12 @@ export const reportRepository = {
             }
           );
         }
+        acc[key]?.length &&
+          acc[key].unshift({
+            x: 'Unknown',
+            y: unknownAllocations[key],
+          });
+
         acc[key]?.length &&
           acc[key].push({
             x: 'Unused',
