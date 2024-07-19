@@ -4,7 +4,7 @@ const initializeOctokit = async (owner: string, repo: string) => {
   const { Octokit } = await import('@octokit/rest');
   const { createAppAuth } = await import('@octokit/auth-app');
 
-  let octokit = new Octokit({
+  const octokit = new Octokit({
     authStrategy: createAppAuth,
     auth: {
       appId: env.APP_ID,

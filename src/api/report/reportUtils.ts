@@ -1,3 +1,4 @@
+import { emojify } from 'node-emoji';
 import xbytes from 'xbytes';
 
 import { GrantedDatacapInClients } from './reportModel';
@@ -21,6 +22,18 @@ export const reportUtils = {
     const b = (base + Math.abs(Math.sin(Math.random() + 3) * range)) | 0;
     return `rgba(${r}, ${g}, ${b})`;
   },
+};
+
+export const generateClientsRow = async (e: any, flaggedClientsInfo: any[], reportRepository: any) => {
+  const totalAllocations = e.allowanceArray.reduce((acc: number, curr: any) => acc + Number(curr.allowance), 0);
+  const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
+    ? emojify(':warning:')
+    : '';
+  const linkToInteractions = `https://filecoinpulse.pages.dev/client/${e.addressId}/#client-interactions-with-storage-providers`;
+
+  const cidReportUrl = await reportRepository.getClientCidReportUrl(e.address);
+
+  return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations)} | [Filecoin Pulse](${linkToInteractions}) | ${cidReportUrl} |`;
 };
 
 const groupByAddressId = (grantedDatacapInClients: GrantedDatacapInClients[]) =>

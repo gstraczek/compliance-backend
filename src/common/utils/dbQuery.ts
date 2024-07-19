@@ -28,3 +28,5 @@ export const providerDistributionQuery = `
          (total_deal_size::FLOAT - unique_data_size) / total_deal_size::FLOAT AS duplication_percentage
   FROM miners
   ORDER BY total_deal_size DESC`;
+
+export const generatedReportQuery = `SELECT * FROM generated_reports WHERE client_address_id = $1 ORDER BY created_at DESC LIMIT 1`;

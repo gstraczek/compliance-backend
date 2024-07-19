@@ -21,7 +21,7 @@ import xbytes from 'xbytes';
 import { axiosConfig } from '@/common/utils/axiosConfig';
 import GenerateChart, { BarChartEntry } from '@/common/utils/charts/generateChart';
 import GeoMap from '@/common/utils/charts/geoMap';
-import { clientDealsQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
+import { clientDealsQuery, generatedReportQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
 import { env } from '@/common/utils/envConfig';
 import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
 import { isNotEmpty } from '@/common/utils/typeGuards';
@@ -29,6 +29,7 @@ import { db } from '@/db';
 import { logger } from '@/server';
 
 import {
+  Allocator,
   ClientsByVerifier,
   ClientsByVerifierData,
   ClientsDeals,
@@ -46,7 +47,7 @@ import {
   Retrievability,
   SparkSuccessRate,
 } from './reportModel';
-import { reportUtils } from './reportUtils';
+import { generateClientsRow, reportUtils } from './reportUtils';
 
 export const reportRepository = {
   generateReport: async (
@@ -67,24 +68,24 @@ export const reportRepository = {
 
     content.push('# Compliance Report');
     content.push("## Allocator's Info");
-    const header = reportRepository.reportHeaderContent(verifiersData, grantedDatacapInProviders, timeToFirstDeal);
+    const header = await reportRepository.reportHeaderContent(
+      verifiersData,
+      grantedDatacapInProviders,
+      timeToFirstDeal,
+      Number(datacapInClientsDist.length)
+    );
     content = [...content, ...header];
 
     if (Number(clientsData.count)) {
-      const clientsRows = clientsData.data.map((e) => {
-        const totalAllocations = e.allowanceArray.reduce((acc: number, curr: any) => acc + Number(curr.allowance), 0);
-        const warning = flaggedClientsInfo.find((flaggedClient) => flaggedClient.addressId === e.addressId)
-          ? emojify(':warning:')
-          : '';
-        return `| ${warning} ${e.addressId}| ${e.name || '-'} | ${e.allowanceArray.length} | ${xbytes(totalAllocations, { iec: true })} |`;
-      });
-
+      const clientsRows = await Promise.all(
+        clientsData.data.map((e) => generateClientsRow(e, flaggedClientsInfo, reportRepository))
+      );
       // Generate bar chart image for clients datacap issuance
       content.push('');
       content.push('## List of clients and their allocations');
       content.push('');
-      content.push('| ID | Name | Number of Allocations | Total Allocations |');
-      content.push('|-|-|-|-|');
+      content.push("| ID | Name | Number of Allocations | Total Allocations | Interactions With SP's | CID Report |");
+      content.push('|-|-|-|-|-|-|');
       clientsRows.forEach((row: string) => content.push(row));
       content.push('');
 
@@ -151,8 +152,17 @@ export const reportRepository = {
       content.push('');
       content.push('## Location of Clients and Storage Providers with the Percentage of Total Datacap Displayed');
       content.push(`<img src="${geoMapUrl}"/>`);
+      content.push('');
+
+      content.push('## Detailed Allocations per Client');
+      content.push('');
+      const detailedAllocationsPerClient = await reportRepository.detailedAllocationsPerClient(clientsData.data);
+      detailedAllocationsPerClient.forEach((client) => {
+        client.forEach((row) => content.push(row));
+        content.push('');
+      });
     } else {
-      content.push('### No Datacap issued for verifier');
+      content.push('### No Datacap issued for allocator');
     }
     const joinedContent = Buffer.from(content.join('\n')).toString('base64');
     const reportUrl = await reportRepository.saveFile(
@@ -717,30 +727,82 @@ export const reportRepository = {
   constructBasepath: (uploadDir: string | undefined, addressId: string): string => {
     return uploadDir ? `${uploadDir}/${addressId}` : addressId;
   },
-  reportHeaderContent: (
+  reportHeaderContent: async (
     verifiersData: GetVerifiersDataItem,
     grantedDatacapInProviders: ProviderDistributionTable[],
-    timeToFirstDeal: number[]
-  ): string[] => {
+    timeToFirstDeal: number[],
+    numberOfClients: number
+  ): Promise<string[]> => {
     const averageRetrievalScore = arraystat(grantedDatacapInProviders.map((x) => x.retrieval_success_rate)).avg;
-
     const averageRetrievalScorePct = averageRetrievalScore !== 0 ? (averageRetrievalScore * 100).toFixed(2) + '%' : '-';
-
     const averageTimeToFirstDeal = arraystat(timeToFirstDeal).avg;
-
+    const allocatorInfo = await reportRepository.getAllocatorInfo(verifiersData.address);
     const content = [];
+
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
-    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocator/${verifiersData.addressId}/`);
-    //TODO: get from filplus backend
-    // content.push(`- Application URL: `)
-    // content.push(`- Application Issue: `);
+    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
+    content.push(`- Number of clients: ${numberOfClients}`);
     content.push(`- Is Multisig: ${verifiersData.isMultisig}`);
     content.push(`- Average retrievability success rate: ${averageRetrievalScorePct}`);
     content.push(
       `- Average time to first deal: ${averageTimeToFirstDeal ? averageTimeToFirstDeal.toFixed(2) + ' days' : '-'}`
     );
+    content.push(`- Data Types: ${allocatorInfo?.data_types?.join(', ') || '-'}`);
+    content.push(`- Required Copies: ${allocatorInfo?.required_replicas || '-'}`);
     return content;
+  },
+  detailedAllocationsPerClient: (clientsData: ClientsByVerifier[]): string[][] => {
+    const data = clientsData.map((client) => {
+      const content = [];
+      content.push(
+        `| ID | Name | Allocation Amount | Duration Between Previous Allocation Request (days) | Time from Allocation request to On-chain Approval (hours) |`
+      );
+      content.push('|-|-|-|-|-|');
+      client.allowanceArray.forEach((allocation, idx) => {
+        const allocationDate = dayjs.unix(allocation.createMessageTimestamp);
+        let durationBetweenAllocationRequest = '-';
+        if (idx !== 0) {
+          const previousAllocationDate = dayjs.unix(client.allowanceArray[idx - 1].createMessageTimestamp);
+          durationBetweenAllocationRequest = previousAllocationDate.diff(allocationDate, 'days').toString();
+        }
+        const issueCreateDate = dayjs.unix(allocation.issueCreateTimestamp);
+        const timeFromAllocationToApproval = allocationDate.diff(issueCreateDate, 'hours').toString();
+
+        content.push(
+          `| ${client.addressId} | ${client.name || '-'} | ${allocation.allowance} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
+        );
+      });
+
+      return content;
+    });
+
+    return data;
+  },
+  getClientCidReportUrl: async (address: string): Promise<string> => {
+    try {
+      const report = await db.query(generatedReportQuery, [address]);
+      if (report.rows.length === 0) {
+        return '-';
+      }
+
+      const url = `[CID Report](${env.ALLOCATOR_BASE_REPORT_URL}/${report.rows[0].file_path})`;
+      return url;
+    } catch (error) {
+      throw new Error('Error getting clients CID report data from the DB: ' + error);
+    }
+  },
+  getAllocatorsData: async (): Promise<Allocator[] | undefined> => {
+    try {
+      const response = await axios.get(`${env.FILPLUS_BACKEND_API_URL}/allocators`);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error getting allocator tech data from ${env.FILPLUS_BACKEND_API_URL} API: ${error}`);
+    }
+  },
+  getAllocatorInfo: async (address: string): Promise<Allocator | undefined> => {
+    const data = await reportRepository.getAllocatorsData();
+    return data?.find((x) => x.address === address);
   },
 };
