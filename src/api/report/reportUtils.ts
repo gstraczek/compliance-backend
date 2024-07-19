@@ -2,6 +2,7 @@ import { emojify } from 'node-emoji';
 import xbytes from 'xbytes';
 
 import { GrantedDatacapInClients } from './reportModel';
+import dayjs from 'dayjs';
 
 export const reportUtils = {
   distinctSizesOfAllocations: (grantedDatacapInClients: GrantedDatacapInClients[]) => {
@@ -22,6 +23,15 @@ export const reportUtils = {
     const b = (base + Math.abs(Math.sin(Math.random() + 3) * range)) | 0;
     return `rgba(${r}, ${g}, ${b})`;
   },
+};
+
+export const formattedTimeDiff = (from: dayjs.Dayjs, to: dayjs.Dayjs): string => {
+  const hours = to.diff(from, 'hours');
+  if (hours >= 48) {
+    return `${to.diff(from, 'days')} days`;
+  }
+
+  return `${hours} hours`;
 };
 
 export const generateClientsRow = async (e: any, flaggedClientsInfo: any[], reportRepository: any) => {
