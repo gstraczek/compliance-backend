@@ -786,8 +786,8 @@ export const reportRepository = {
       if (report.rows.length === 0) {
         return '-';
       }
-
-      const url = `[CID Report](${env.ALLOCATOR_BASE_REPORT_URL}/${report.rows[0].file_path})`;
+      const path = env.ALLOCATOR_BASE_REPORT_URL + report.rows[0].file_path;
+      const url = `[CID Report](${path})`;
       return url;
     } catch (error) {
       throw new Error('Error getting clients CID report data from the DB: ' + error);
