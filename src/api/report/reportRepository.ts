@@ -47,7 +47,7 @@ import {
   Retrievability,
   SparkSuccessRate,
 } from './reportModel';
-import { generateClientsRow, reportUtils } from './reportUtils';
+import { formattedTimeDiff, generateClientsRow, reportUtils } from './reportUtils';
 
 export const reportRepository = {
   generateReport: async (
@@ -757,21 +757,26 @@ export const reportRepository = {
     const data = clientsData.map((client) => {
       const content = [];
       content.push(
-        `| ID | Name | Allocation Amount | Duration Between Previous Allocation Request (days) | Time from Allocation request to On-chain Approval (hours) |`
+        `| Client ID | Name | Allocation Amount | Time Since Previous Allocation | Time from Allocation Request to On-chain |`
       );
       content.push('|-|-|-|-|-|');
+      client.allowanceArray.sort((a, b) => a.createMessageTimestamp > b.createMessageTimestamp ? 1 : -1);
       client.allowanceArray.forEach((allocation, idx) => {
         const allocationDate = dayjs.unix(allocation.createMessageTimestamp);
         let durationBetweenAllocationRequest = '-';
+        let timeFromAllocationToApproval = '-';
         if (idx !== 0) {
           const previousAllocationDate = dayjs.unix(client.allowanceArray[idx - 1].createMessageTimestamp);
-          durationBetweenAllocationRequest = previousAllocationDate.diff(allocationDate, 'days').toString();
+          durationBetweenAllocationRequest = formattedTimeDiff(previousAllocationDate, allocationDate);
         }
-        const issueCreateDate = dayjs.unix(allocation.issueCreateTimestamp);
-        const timeFromAllocationToApproval = allocationDate.diff(issueCreateDate, 'hours').toString();
+        if (idx === 0) {
+          const issueCreateDate = dayjs.unix(allocation.issueCreateTimestamp);
+          timeFromAllocationToApproval = formattedTimeDiff(issueCreateDate, allocationDate);
+        }
+        const allowance = xbytes(allocation.allowance);
 
         content.push(
-          `| ${client.addressId} | ${client.name || '-'} | ${allocation.allowance} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
+          `| ${client.addressId} | ${client.name || '-'} | ${allowance} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
         );
       });
 
