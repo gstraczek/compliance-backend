@@ -295,29 +295,32 @@ export const reportRepository = {
 
     const total = distributions.reduce((acc, cur) => acc + parseFloat(cur.total_deal_size), 0);
 
-    const ProvidersDistribution: ProviderDistributionTable[] = [];
     const providersRetrievability = await reportRepository.providersRetrievability(
       distributions,
       env.RETRIEVABILITY_RANGE_DAYS
     );
 
-    for (const item of distributions) {
-      const location = await reportRepository.getLocation(item.provider);
-      const retrieval_success_rate =
-        providersRetrievability.retrievability.find((x) => x.provider_id === item.provider)?.success_rate || null;
+    const retrievabilityMap = new Map(
+      providersRetrievability.retrievability.map((x) => [x.provider_id, x.success_rate])
+    );
 
-      // parse float???
+    const locationPromises = distributions.map((item) => reportRepository.getLocation(item.provider));
+    const locations = await Promise.all(locationPromises);
+
+    const ProvidersDistribution: ProviderDistributionTable[] = distributions.map((item, index) => {
+      const retrieval_success_rate = retrievabilityMap.get(item.provider) || null;
       const total_sealed_deals = xbytes(parseFloat(item.total_deal_size), { iec: true });
       const percentage = (parseFloat(item.total_deal_size) / total) * 100;
 
-      ProvidersDistribution.push({
+      return {
         provider: item.provider,
-        location,
+        location: locations[index],
         retrieval_success_rate,
         total_sealed_deals,
         percentage,
-      });
-    }
+      };
+    });
+
     return ProvidersDistribution;
   },
 
@@ -760,7 +763,7 @@ export const reportRepository = {
         `| Client ID | Name | Allocation Amount | Time Since Previous Allocation | Time from Allocation Request to On-chain |`
       );
       content.push('|-|-|-|-|-|');
-      client.allowanceArray.sort((a, b) => a.createMessageTimestamp > b.createMessageTimestamp ? 1 : -1);
+      client.allowanceArray.sort((a, b) => (a.createMessageTimestamp > b.createMessageTimestamp ? 1 : -1));
       client.allowanceArray.forEach((allocation, idx) => {
         const allocationDate = dayjs.unix(allocation.createMessageTimestamp);
         let durationBetweenAllocationRequest = '-';
