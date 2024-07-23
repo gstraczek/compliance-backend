@@ -7,26 +7,21 @@ ORDER BY client, start_epoch
 
 export const providerDistributionQuery = `
   WITH miner_pieces AS (SELECT provider,
-                               piece_cid,
-                               SUM(piece_size) AS total_deal_size,
-                               MIN(piece_size) AS piece_size
+                               SUM(piece_size) AS total_deal_size
                         FROM current_state
                         WHERE current_state.client = ANY ($1)
                           AND verified_deal = true
                           AND slash_epoch < 0
-                          AND (sector_start_epoch > 0 AND sector_start_epoch < $2)
                           AND end_epoch > $2
-                        GROUP BY provider, piece_cid),
+                          AND (sector_start_epoch > 0 AND sector_start_epoch < $2)
+                        GROUP BY provider),
        miners AS (SELECT provider,
-                         SUM(total_deal_size) AS total_deal_size,
-                         SUM(piece_size)      AS unique_data_size
+                         SUM(total_deal_size) AS total_deal_size
                   FROM miner_pieces
                   GROUP BY provider)
   SELECT miners.provider,
-         total_deal_size,
-         unique_data_size,
-         (total_deal_size::FLOAT - unique_data_size) / total_deal_size::FLOAT AS duplication_percentage
+         total_deal_size
   FROM miners
-  ORDER BY total_deal_size DESC`;
+  `;
 
 export const generatedReportQuery = `SELECT * FROM generated_reports WHERE client_address_id = $1 ORDER BY created_at DESC LIMIT 1`;

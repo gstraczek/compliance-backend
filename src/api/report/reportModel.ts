@@ -141,8 +141,6 @@ export interface GrantedDatacapInClients {
 export interface ProviderDistribution {
   provider: string;
   total_deal_size: string;
-  unique_data_size: string;
-  duplication_percentage: number;
   percentage: number;
   retrieval_success_rate: number | string;
   total_sealed_deals: bigint;
