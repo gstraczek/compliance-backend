@@ -25,7 +25,7 @@ import { clientDealsQuery, generatedReportQuery, providerDistributionQuery } fro
 import { env } from '@/common/utils/envConfig';
 import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
 import { isNotEmpty } from '@/common/utils/typeGuards';
-import { db } from '@/db';
+import { dbLocal, dbReplica } from '@/db';
 import { logger } from '@/server';
 
 import {
@@ -284,7 +284,7 @@ export const reportRepository = {
   getStorageProvidersDistribution: async (clients: string[]): Promise<ProviderDistributionTable[] | []> => {
     const currentEpoch = getCurrentEpoch();
     logger.info({ clients, currentEpoch }, 'Getting storage provider distribution');
-    const queryResult = await db.query(providerDistributionQuery, [clients, currentEpoch]);
+    const queryResult = await dbReplica.query(providerDistributionQuery, [clients, currentEpoch]);
     const distributions: ProviderDistribution[] = queryResult.rows;
     const providers = distributions.map((r) => r.provider);
     if (providers.length === 0) {
@@ -458,11 +458,9 @@ export const reportRepository = {
   getClientsDeals: async (verifierClientsData: ClientsByVerifier[]): Promise<ClientsDeals[]> => {
     const clientAddressIds = verifierClientsData.map((e) => e.addressId);
     try {
-      db.connect();
-
       const values = [clientAddressIds];
 
-      const result = await db.query(clientDealsQuery, values);
+      const result = await dbReplica.query(clientDealsQuery, values);
 
       const data = result.rows.map((row) => ({
         ...row,
@@ -745,7 +743,7 @@ export const reportRepository = {
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
-    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
+    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocator/${verifiersData.addressId}`);
     content.push(`- Number of clients: ${numberOfClients}`);
     content.push(`- Is Multisig: ${verifiersData.isMultisig}`);
     content.push(`- Average retrievability success rate: ${averageRetrievalScorePct}`);
@@ -790,7 +788,7 @@ export const reportRepository = {
   },
   getClientCidReportUrl: async (address: string): Promise<string> => {
     try {
-      const report = await db.query(generatedReportQuery, [address]);
+      const report = await dbLocal.query(generatedReportQuery, [address]);
       if (report.rows.length === 0) {
         return '-';
       }
