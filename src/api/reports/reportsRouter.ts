@@ -22,7 +22,7 @@ export const ReportsRouter: Router = (() => {
     responses: createApiResponse(z.array(ReportsSchema), 'Success'),
   });
 
-  router.post('/', async (_req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response) => {
     const reports = await reportsService.listReports();
     handleServiceResponse(reports, res);
   });
