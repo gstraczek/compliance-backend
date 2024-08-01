@@ -175,7 +175,6 @@ export const reportRepository = {
       `${verifiersData.addressId}/${reportGenTs}/report.md`
     );
 
-    await reportRepository.saveInDb(verifiersData, reportUrl);
     return reportUrl;
   },
 
