@@ -39,6 +39,7 @@ export const reportService = {
       const generateReportRes = {
         generatedReportUrl: `${env.APP_BASE_URL}/report/${verifiersData.addressId}/${reportGenTs}/report.md`,
       };
+      await reportRepository.saveInDb(verifiersData, generateReportRes.generatedReportUrl);
 
       return new ServiceResponse(
         ResponseStatus.Success,
