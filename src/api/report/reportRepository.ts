@@ -745,7 +745,7 @@ export const reportRepository = {
     content.push(`- Name: ${verifiersData.name}`);
     content.push(`- Id: ${verifiersData.addressId}`);
     content.push(`- Address: ${verifiersData.address}`);
-    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocators/${verifiersData.addressId}`);
+    content.push(`- Filecoin Pulse: https://filecoinpulse.pages.dev/allocator/${verifiersData.addressId}`);
     content.push(`- Number of clients: ${numberOfClients}`);
     content.push(`- Is Multisig: ${verifiersData.isMultisig}`);
     content.push(`- Average retrievability success rate: ${averageRetrievalScorePct}`);
