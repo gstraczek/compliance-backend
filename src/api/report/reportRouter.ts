@@ -16,21 +16,6 @@ reportRegistry.register('Report', ReportSchema);
 export const ReportRouter: Router = (() => {
   const router = express.Router();
 
-  reportRegistry.registerPath({
-    method: 'post',
-    path: '/report',
-    tags: ['Report'],
-    request: {
-      body: {
-        content: {
-          'application/json': {
-            schema: GetReportSchema.shape.body,
-          },
-        },
-      },
-    },
-    responses: createApiResponse(z.array(ReportSchema), 'Success'),
-  });
   if (env.isDev) {
     reportRegistry.registerPath({
       method: 'get',
@@ -46,9 +31,38 @@ export const ReportRouter: Router = (() => {
     });
   }
 
+  reportRegistry.registerPath({
+    method: 'post',
+    path: '/report',
+    tags: ['Report'],
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: GetReportSchema.shape.body,
+          },
+        },
+      },
+    },
+    responses: createApiResponse(z.array(ReportSchema), 'Success'),
+  });
   router.post('/', async (_req: Request, res: Response) => {
     const generateReport = await reportService.generateReport(_req.body.verifierAddress);
     handleServiceResponse(generateReport, res);
+  });
+
+  reportRegistry.registerPath({
+    method: 'get',
+    path: '/report/{verifierAddress}',
+    tags: ['Report'],
+    request: {
+      params: GetReportSchema.shape.params,
+    },
+    responses: createApiResponse(z.array(ReportSchema), 'Success'),
+  });
+  router.get('/:verifierAddress', async (_req: Request, res: Response) => {
+    const result = await reportService.getLatestReport(_req.params.verifierAddress);
+    handleServiceResponse(result, res);
   });
 
   return router;
