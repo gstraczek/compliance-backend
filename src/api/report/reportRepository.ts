@@ -832,7 +832,7 @@ export const reportRepository = {
     const { rows } = await db.query(getLatestReportQuery, [verifierAddress]);
 
     if (rows.length > 0) {
-      return rows[0];
+      return rows[0].url;
     } else {
       return null;
     }
