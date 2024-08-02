@@ -14,6 +14,7 @@ import { env } from '@/common/utils/envConfig';
 
 import { MainRouter } from './api/main/mainRouter';
 import { ReportRouter } from './api/report/reportRouter';
+import { ReportsRouter } from './api/reports/reportsRouter';
 import webhooks from './common/middleware/webhooksHandler';
 
 const logger = pino({ name: 'server start' });
@@ -39,6 +40,7 @@ app.use(express.json());
 
 // Routes
 app.use('/health-check', healthCheckRouter);
+app.use('/reports', ReportsRouter);
 app.use('/report', ReportRouter);
 app.use('/', MainRouter);
 

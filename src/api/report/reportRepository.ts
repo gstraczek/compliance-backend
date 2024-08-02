@@ -21,7 +21,12 @@ import xbytes from 'xbytes';
 import { axiosConfig } from '@/common/utils/axiosConfig';
 import GenerateChart, { BarChartEntry } from '@/common/utils/charts/generateChart';
 import GeoMap from '@/common/utils/charts/geoMap';
-import { clientDealsQuery, generatedReportQuery, providerDistributionQuery } from '@/common/utils/dbQuery';
+import {
+  clientDealsQuery,
+  generatedReportQuery,
+  providerDistributionQuery,
+  storeReportQuery,
+} from '@/common/utils/dbQuery';
 import { env } from '@/common/utils/envConfig';
 import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
 import { isNotEmpty } from '@/common/utils/typeGuards';
@@ -169,6 +174,7 @@ export const reportRepository = {
       joinedContent,
       `${verifiersData.addressId}/${reportGenTs}/report.md`
     );
+
     return reportUrl;
   },
 
@@ -709,6 +715,14 @@ export const reportRepository = {
     } catch (e) {
       logger.error('Error uploading file %s: %s', filePath, e);
       throw new Error('Error uploading file');
+    }
+  },
+
+  saveInDb: async (verifiersData: GetVerifiersDataItem, reportUrl: string) => {
+    try {
+      await db.query(storeReportQuery, [verifiersData.address, verifiersData.addressId, verifiersData.name, reportUrl]);
+    } catch (error) {
+      console.error('Failed to save report in db', error);
     }
   },
 
