@@ -15,6 +15,9 @@ export const GetReportSchema = z.object({
   body: z.object({
     verifierAddress: commonValidations.verifierAddress,
   }),
+  params: z.object({
+    verifierAddress: commonValidations.verifierAddress,
+  }),
 });
 
 export const GetReportGenSchema = z.object({

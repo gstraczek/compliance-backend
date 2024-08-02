@@ -24,6 +24,7 @@ import GeoMap from '@/common/utils/charts/geoMap';
 import {
   clientDealsQuery,
   generatedReportQuery,
+  getLatestReportQuery,
   providerDistributionQuery,
   storeReportQuery,
 } from '@/common/utils/dbQuery';
@@ -826,5 +827,14 @@ export const reportRepository = {
   getAllocatorInfo: async (address: string): Promise<Allocator | undefined> => {
     const data = await reportRepository.getAllocatorsData();
     return data?.find((x) => x.address === address);
+  },
+  getLatestReport: async (verifierAddress: string): Promise<string | null> => {
+    const { rows } = await db.query(getLatestReportQuery, [verifierAddress]);
+
+    if (rows.length > 0) {
+      return rows[0];
+    } else {
+      return null;
+    }
   },
 };
