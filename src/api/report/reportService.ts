@@ -125,4 +125,27 @@ export const reportService = {
       return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   },
+  getLatestReport: async (verifierAddress: string): Promise<ServiceResponse<any>> => {
+    try {
+      const generatedReportUrl = await reportRepository.getLatestReport(verifierAddress);
+
+      if (!generatedReportUrl) {
+        return new ServiceResponse(ResponseStatus.Success, 'No report found', null, StatusCodes.NOT_FOUND);
+      }
+
+      const generateReportRes = { generatedReportUrl };
+
+      return new ServiceResponse(
+        ResponseStatus.Success,
+        'Report fetched successfully',
+        generateReportRes,
+        StatusCodes.OK
+      );
+    } catch (ex) {
+      const error = (ex as Error).message;
+      const errorMessage = `There was an error while fetching report: ${error}`;
+      logger.error(errorMessage);
+      return new ServiceResponse(ResponseStatus.Failed, errorMessage, null, StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+  },
 };
