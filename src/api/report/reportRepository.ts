@@ -465,8 +465,6 @@ export const reportRepository = {
   getClientsDeals: async (verifierClientsData: ClientsByVerifier[]): Promise<ClientsDeals[]> => {
     const clientAddressIds = verifierClientsData.map((e) => e.addressId);
     try {
-      db.connect();
-
       const values = [clientAddressIds];
 
       const result = await db.query(clientDealsQuery, values);
