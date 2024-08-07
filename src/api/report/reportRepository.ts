@@ -4,8 +4,10 @@ import axios from 'axios';
 import { LegendOptions } from 'chart.js';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
-
+import utc from 'dayjs/plugin/utc';
 dayjs.extend(duration);
+dayjs.extend(utc);
+
 let arraystat: any;
 
 import('arraystat').then((module) => {
@@ -30,6 +32,7 @@ import {
 } from '@/common/utils/dbQuery';
 import { env } from '@/common/utils/envConfig';
 import { getCurrentEpoch, heightToUnix } from '@/common/utils/filplusEpoch';
+import { getInfoFromGithubIssueUrl } from '@/common/utils/github';
 import { isNotEmpty } from '@/common/utils/typeGuards';
 import { db } from '@/db';
 import { logger } from '@/server';
@@ -773,7 +776,7 @@ export const reportRepository = {
     const data = clientsData.map((client) => {
       const content = [];
       content.push(
-        `| Client ID | Name | Allocation Amount | Time Since Previous Allocation | Time from Allocation Request to On-chain |`
+        `| Allowance | Client ID | Name | Issue Created |Allocation Amount | Time Since Previous Allocation | Time from Allocation Request to On-chain |`
       );
       content.push('|-|-|-|-|-|');
       client.allowanceArray.sort((a, b) => (a.createMessageTimestamp > b.createMessageTimestamp ? 1 : -1));
@@ -781,6 +784,7 @@ export const reportRepository = {
         const allocationDate = dayjs.unix(allocation.createMessageTimestamp);
         let durationBetweenAllocationRequest = '-';
         let timeFromAllocationToApproval = '-';
+        let issueGhLink = '-';
         if (idx !== 0) {
           const previousAllocationDate = dayjs.unix(client.allowanceArray[idx - 1].createMessageTimestamp);
           durationBetweenAllocationRequest = formattedTimeDiff(previousAllocationDate, allocationDate);
@@ -790,9 +794,17 @@ export const reportRepository = {
           timeFromAllocationToApproval = formattedTimeDiff(issueCreateDate, allocationDate);
         }
         const allowance = xbytes(allocation.allowance);
+        if (allocation.auditTrail) {
+          const info = getInfoFromGithubIssueUrl(allocation.auditTrail);
+          if (info) {
+            const { owner, issueNumber } = info;
+            issueGhLink = `[#${issueNumber} by ${owner}](${allocation.auditTrail})`;
+          }
+        }
+        const issueCreated = dayjs.unix(allocation.createMessageTimestamp).utc().format('YYYY-MM-DD');
 
         content.push(
-          `| ${client.addressId} | ${client.name || '-'} | ${allowance} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
+          `| ${issueGhLink} |${client.addressId} | ${client.name || '-'} | ${allowance} | ${issueCreated} | ${durationBetweenAllocationRequest} | ${timeFromAllocationToApproval} |`
         );
       });
 
