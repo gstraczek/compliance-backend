@@ -33,4 +33,4 @@ export const generatedReportQuery = `SELECT * FROM generated_reports WHERE clien
 
 export const storeReportQuery = `insert into allocator_generated_reports (address, address_id, name, url) values ($1, $2, $3, $4)`;
 export const listReportsQuery = `select distinct on (address) address, address_id, name, url, created_at from allocator_generated_reports order by address desc, created_at desc`;
-export const getLatestReportQuery = `select url from allocator_generated_reports where address = $1 order by created_at desc limit 1`;
+export const getLatestReportQuery = `select url from allocator_generated_reports where address = $1 or address_id = $1 order by created_at desc limit 1`;
